@@ -1284,6 +1284,142 @@ namespace TMPro
             return allCharactersAdded && !isMissingCharacters;
         }
 
+        //
+        public bool TryAddCharacters(List<char> characters, HashSet<char> missingCharacters)
+        {
+            // Make sure font asset is set to dynamic and that we have a valid list of characters.
+            if (characters.Count == 0 || m_AtlasPopulationMode == AtlasPopulationMode.Static)
+            {
+                if (m_AtlasPopulationMode == AtlasPopulationMode.Static)
+                    Debug.LogWarning("Unable to add characters to font asset [" + this.name + "] because its AtlasPopulationMode is set to Static.", this);
+                else
+                {
+                    Debug.LogWarning("Unable to add characters to font asset [" + this.name + "] because the provided character list is Null or Empty.", this);
+                }
+
+                //missingCharacters = characters;
+                return false;
+            }
+
+            // Load font face.
+            if (FontEngine.LoadFontFace(m_SourceFontFile, m_FaceInfo.pointSize) != FontEngineError.Success)
+            {
+                //missingCharacters = characters;
+                return false;
+            }
+
+            // Clear data structures used to track which glyph needs to be added to atlas texture.
+            m_GlyphIndexList.Clear();
+            m_CharactersToAdd.Clear();
+
+            bool isMissingCharacters = false;
+            int characterCount = characters.Count;
+
+            // Iterate over each of the requested characters.
+            for (int i = 0; i < characterCount; i++)
+            {
+                uint unicode = characters[i];
+
+                // Check if character is already contained in the character table.
+                if (m_CharacterLookupDictionary.ContainsKey(unicode))
+                    continue;
+
+                // Get the index of the glyph for this unicode value.
+                uint glyphIndex = FontEngine.GetGlyphIndex(unicode);
+
+                // Skip missing glyphs
+                if (glyphIndex == 0)
+                {
+                    // Might want to keep track and report the missing characters.
+                    isMissingCharacters = true;
+                    continue;
+                }
+
+                TMP_Character character = new TMP_Character(unicode, glyphIndex);
+
+                // Check if glyph is already contained in the font asset as the same glyph might be referenced by multiple characters.
+                if (m_GlyphLookupDictionary.ContainsKey(glyphIndex))
+                {
+                    character.glyph = m_GlyphLookupDictionary[glyphIndex];
+                    m_CharacterTable.Add(character);
+                    m_CharacterLookupDictionary.Add(unicode, character);
+
+                    continue;
+                }
+
+                // Add glyph to list of glyphs to add and glyph lookup map.
+                m_GlyphIndexList.Add(glyphIndex);
+                m_CharactersToAdd.Add(character);
+            }
+
+            if (m_GlyphIndexList.Count == 0)
+            {
+                //missingCharacters = characters;
+                return false;
+            }
+
+            // Resize the Atlas Texture to the appropriate size
+            if (m_AtlasTextures[m_AtlasTextureIndex].width == 0 || m_AtlasTextures[m_AtlasTextureIndex].height == 0)
+            {
+                //Debug.Log("Setting initial size of atlas texture used by font asset [" + this.name + "].");
+                m_AtlasTextures[m_AtlasTextureIndex].Resize(m_AtlasWidth, m_AtlasHeight);
+                FontEngine.ResetAtlasTexture(m_AtlasTextures[m_AtlasTextureIndex]);
+            }
+
+            Glyph[] glyphs;
+
+            bool allCharactersAdded = FontEngine.TryAddGlyphsToTexture(m_GlyphIndexList, m_AtlasPadding, GlyphPackingMode.BestShortSideFit, m_FreeGlyphRects, m_UsedGlyphRects, m_AtlasRenderMode, m_AtlasTextures[m_AtlasTextureIndex], out glyphs);
+
+            for (int i = 0; i < glyphs.Length; i++)
+            {
+                Glyph glyph = glyphs[i];
+                if (glyph == null)
+                {
+                    continue;
+                }
+                uint glyphIndex = glyph.index;
+
+                if (!m_GlyphLookupDictionary.ContainsKey(glyphIndex))
+                {
+                    // Add new glyph to glyph table.
+                    m_GlyphTable.Add(glyph);
+                    m_GlyphLookupDictionary.Add(glyphIndex, glyph);
+                }
+            }
+
+            //missingCharacters = string.Empty;
+
+            // Add new characters to relevant data structures.
+            for (int i = 0; i < m_CharactersToAdd.Count; i++)
+            {
+                TMP_Character character = m_CharactersToAdd[i];
+                Glyph glyph;
+
+                if (m_GlyphLookupDictionary.TryGetValue(character.glyphIndex, out glyph) == false)
+                {
+                    // TODO: Revise to avoid string concatenation.
+                    if (missingCharacters != null)
+                    {
+                        missingCharacters.Add((char)character.unicode);
+                    }
+                    continue;
+                }
+
+                character.glyph = glyph;
+                m_CharacterTable.Add(character);
+                m_CharacterLookupDictionary.Add(character.unicode, character);
+            }
+
+#if UNITY_EDITOR
+            // Makes the changes to the font asset persistent.
+            if (UnityEditor.EditorUtility.IsPersistent(this))
+            {
+                TMP_EditorResourceManager.RegisterResourceForUpdate(this);
+            }
+#endif
+
+            return allCharactersAdded && !isMissingCharacters;
+        }
 
         /// <summary>
         /// NOT USED CURRENTLY - Try adding character using Unicode value to font asset.

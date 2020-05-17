@@ -18,9 +18,31 @@ namespace TMPro
             }
         }
 
+        /// <summary>
+        /// 子集对应的字使用次数
+        /// </summary>
         private Dictionary<TMP_FontAsset, Dictionary<uint, int>> m_FontCharacterLookupDictionary = new Dictionary<TMP_FontAsset, Dictionary<uint, int>>();
+
+        /// <summary>
+        /// 动态也无法生成的字符，不再进行生成，前提是图集够大，不是因为动态字满了才导致失败
+        /// </summary>
+        private Dictionary<TMP_FontAsset, HashSet<char>> m_CharNonexistentCharacters = new Dictionary<TMP_FontAsset, HashSet<char>>();
+
+        /// <summary>
+        /// 用来缓存文本组件旧文本内容，防止重复去设置
+        /// </summary>
         private Dictionary<TMP_Text, string> m_TextOldCharacterDictionary = new Dictionary<TMP_Text, string>();
+
+        /// <summary>
+        /// 将静态字集里面不存在的字，临时放在这个列表
+        /// </summary>
         private HashSet<char> m_CharMissingCharacters = new HashSet<char>();
+
+        /// <summary>
+        /// 将要进行动态添加的字符
+        /// </summary>
+        private List<char> m_CharTryAddCharacters = new List<char>();
+
         private StringBuilder m_StringBuilder = new StringBuilder();
 
         internal static void TextObjectForUpdate(TMP_Text textObject, bool isActive)
@@ -88,14 +110,28 @@ namespace TMPro
                 m_FontCharacterLookupDictionary.Add(font, charRefDictionary);
             }
 
-            m_StringBuilder.Length = 0;
+            HashSet<char> nonexistentCharacters;
+            if (!m_CharNonexistentCharacters.TryGetValue(font, out nonexistentCharacters))
+            {
+                nonexistentCharacters = new HashSet<char>();
+                m_CharNonexistentCharacters.Add(font, nonexistentCharacters);
+            }
+
+            m_CharTryAddCharacters.Clear();
             foreach (var charMissingCharacter in m_CharMissingCharacters)
             {
+                // 如果已经被使用过，则使用计数+1
                 int count;
                 if (charRefDictionary.TryGetValue((uint)charMissingCharacter, out count))
                 {
                     count++;
                     charRefDictionary[charMissingCharacter] = count;
+                    continue;
+                }
+                
+                // 无法生成的字符，不计算
+                if (nonexistentCharacters.Contains(charMissingCharacter))
+                {
                     continue;
                 }
 
@@ -105,16 +141,16 @@ namespace TMPro
                 // 优化，如果此字符已经动态生成，就不再放到生成串里
                 if (!(font.characterLookupTable != null && font.HasCharacter(charMissingCharacter)))
                 {
-                    m_StringBuilder.Append(charMissingCharacter);
+                    m_CharTryAddCharacters.Add(charMissingCharacter);
                 }
             }
 
-            if (m_StringBuilder.Length == 0)
+            if (m_CharTryAddCharacters.Count == 0)
             {
                 return;
             }
 
-            if (font.characterLookupTable != null && !font.TryAddCharacters(m_StringBuilder.ToString()))
+            if (font.characterLookupTable != null && !font.TryAddCharacters(m_CharTryAddCharacters, null))
             {
                 ResetFontAssetData(font);
             }
@@ -128,16 +164,30 @@ namespace TMPro
                 return;
             }
 
-            m_StringBuilder.Length = 0;
+            m_CharTryAddCharacters.Clear();
             foreach (var kv in charRefDictionary)
             {
-                m_StringBuilder.Append((char)kv.Key);
+                m_CharTryAddCharacters.Add((char)kv.Key);
             }
 
-            font.ClearFontAssetData();
-            if (!font.TryAddCharacters(m_StringBuilder.ToString()))
+            HashSet<char> nonexistentCharacters;
+            if (!m_CharNonexistentCharacters.TryGetValue(font, out nonexistentCharacters))
             {
-                Debug.LogWarningFormat("{0} addCharacters fail", font.name);
+                nonexistentCharacters = new HashSet<char>();
+                m_CharNonexistentCharacters.Add(font, nonexistentCharacters);
+            }
+
+
+            font.ClearFontAssetData();
+            if (!font.TryAddCharacters(m_CharTryAddCharacters, nonexistentCharacters))
+            {
+                m_StringBuilder.Length = 0;
+                foreach (var nonexistentCharacter in nonexistentCharacters)
+                {
+                    charRefDictionary.Remove(nonexistentCharacter);
+                    m_StringBuilder.Append(nonexistentCharacter);
+                }
+                Debug.LogWarningFormat("{0} addCharacters fail {1}", font.name, m_StringBuilder.ToString());
             }
         }
 
