@@ -150,9 +150,16 @@ namespace TMPro
                 return;
             }
 
-            if (font.characterLookupTable != null && !font.TryAddCharacters(m_CharTryAddCharacters, null))
+            if (font.characterLookupTable != null)
             {
-                ResetFontAssetData(font);
+                m_CharMissingCharacters.Clear();
+                bool ret = font.TryAddCharacters(m_CharTryAddCharacters, m_CharMissingCharacters);
+                MissingCharactersToNonexistent(font, nonexistentCharacters, charRefDictionary);
+
+                if (!ret)
+                {
+                    ResetFontAssetData(font);
+                }
             }
         }
 
@@ -179,16 +186,9 @@ namespace TMPro
 
 
             font.ClearFontAssetData();
-            if (!font.TryAddCharacters(m_CharTryAddCharacters, nonexistentCharacters))
-            {
-                m_StringBuilder.Length = 0;
-                foreach (var nonexistentCharacter in nonexistentCharacters)
-                {
-                    charRefDictionary.Remove(nonexistentCharacter);
-                    m_StringBuilder.Append(nonexistentCharacter);
-                }
-                Debug.LogWarningFormat("{0} addCharacters fail {1}", font.name, m_StringBuilder.ToString());
-            }
+            m_CharMissingCharacters.Clear();
+            bool ret = font.TryAddCharacters(m_CharTryAddCharacters, m_CharMissingCharacters);
+            MissingCharactersToNonexistent(font, nonexistentCharacters, charRefDictionary);
         }
 
         private void RemoveFontCharacterLookup(TMP_Text textObject)
@@ -285,6 +285,24 @@ namespace TMPro
             }
 
             return null;
+        }
+
+        private void MissingCharactersToNonexistent(TMP_FontAsset font, HashSet<char> nonexistentCharacters, Dictionary<uint, int> charRefDictionary)
+        {
+            if (m_CharMissingCharacters.Count > 0)
+            {
+                m_StringBuilder.Length = 0;
+                foreach (var charMissingCharacter in m_CharMissingCharacters)
+                {
+                    if (!nonexistentCharacters.Contains(charMissingCharacter))
+                    {
+                        nonexistentCharacters.Add(charMissingCharacter);
+                        charRefDictionary.Remove(charMissingCharacter);
+                        m_StringBuilder.Append(charMissingCharacter);
+                    }
+                }
+                Debug.LogWarningFormat("{0} addCharacters fail {1}", font.name, m_StringBuilder.ToString());
+            }
         }
     }
 }

@@ -1284,7 +1284,7 @@ namespace TMPro
             return allCharactersAdded && !isMissingCharacters;
         }
 
-        //
+        // 只有图集满了不能添加的时候，才返回false
         public bool TryAddCharacters(List<char> characters, HashSet<char> missingCharacters)
         {
             // Make sure font asset is set to dynamic and that we have a valid list of characters.
@@ -1297,15 +1297,13 @@ namespace TMPro
                     Debug.LogWarning("Unable to add characters to font asset [" + this.name + "] because the provided character list is Null or Empty.", this);
                 }
 
-                //missingCharacters = characters;
-                return false;
+                return true;
             }
 
             // Load font face.
             if (FontEngine.LoadFontFace(m_SourceFontFile, m_FaceInfo.pointSize) != FontEngineError.Success)
             {
-                //missingCharacters = characters;
-                return false;
+                return true;
             }
 
             // Clear data structures used to track which glyph needs to be added to atlas texture.
@@ -1330,8 +1328,7 @@ namespace TMPro
                 // Skip missing glyphs
                 if (glyphIndex == 0)
                 {
-                    // Might want to keep track and report the missing characters.
-                    isMissingCharacters = true;
+                    missingCharacters.Add((char)unicode);
                     continue;
                 }
 
@@ -1354,8 +1351,7 @@ namespace TMPro
 
             if (m_GlyphIndexList.Count == 0)
             {
-                //missingCharacters = characters;
-                return false;
+                return true;
             }
 
             // Resize the Atlas Texture to the appropriate size
@@ -1387,7 +1383,6 @@ namespace TMPro
                 }
             }
 
-            //missingCharacters = string.Empty;
 
             // Add new characters to relevant data structures.
             for (int i = 0; i < m_CharactersToAdd.Count; i++)
@@ -1397,11 +1392,7 @@ namespace TMPro
 
                 if (m_GlyphLookupDictionary.TryGetValue(character.glyphIndex, out glyph) == false)
                 {
-                    // TODO: Revise to avoid string concatenation.
-                    if (missingCharacters != null)
-                    {
-                        missingCharacters.Add((char)character.unicode);
-                    }
+                    isMissingCharacters = true;
                     continue;
                 }
 
