@@ -37,6 +37,7 @@ namespace TMPro
         /// 将静态字集里面不存在的字，临时放在这个列表
         /// </summary>
         private HashSet<char> m_CharMissingCharacters = new HashSet<char>();
+        private HashSet<char> m_CharMissingCharacters2 = new HashSet<char>();
 
         /// <summary>
         /// 将要进行动态添加的字符
@@ -97,7 +98,12 @@ namespace TMPro
                 return;
             }
 
-            font = GetDynamicFontAsset(font);
+            AddMissingCharacters(font);
+        }
+
+        private void AddMissingCharacters(TMP_FontAsset font)
+        {
+            font = GetNextDynamicFontAsset(font);
             if (font == null)
             {
                 return;
@@ -118,6 +124,7 @@ namespace TMPro
             }
 
             m_CharTryAddCharacters.Clear();
+            m_CharMissingCharacters2.Clear();
             foreach (var charMissingCharacter in m_CharMissingCharacters)
             {
                 // 如果已经被使用过，则使用计数+1
@@ -128,10 +135,11 @@ namespace TMPro
                     charRefDictionary[charMissingCharacter] = count;
                     continue;
                 }
-                
+
                 // 无法生成的字符，不计算
                 if (nonexistentCharacters.Contains(charMissingCharacter))
                 {
+                    m_CharMissingCharacters2.Add(charMissingCharacter);
                     continue;
                 }
 
@@ -145,21 +153,33 @@ namespace TMPro
                 }
             }
 
-            if (m_CharTryAddCharacters.Count == 0)
-            {
-                return;
-            }
-
-            if (font.characterLookupTable != null)
+            if (m_CharTryAddCharacters.Count > 0 && font.characterLookupTable != null)
             {
                 m_CharMissingCharacters.Clear();
                 bool ret = font.TryAddCharacters(m_CharTryAddCharacters, m_CharMissingCharacters);
                 MissingCharactersToNonexistent(font, nonexistentCharacters, charRefDictionary);
 
+                foreach (var charMissingCharacter in m_CharMissingCharacters)
+                {
+                    m_CharMissingCharacters2.Add(charMissingCharacter);
+                }
+
                 if (!ret)
                 {
                     ResetFontAssetData(font);
                 }
+
+                m_CharMissingCharacters.Clear();
+                foreach (var charMissingCharacter in m_CharMissingCharacters2)
+                {
+                    m_CharMissingCharacters.Add(charMissingCharacter);
+                }
+            }
+
+            // 判断下一级回调
+            if (m_CharMissingCharacters.Count > 0)
+            {
+                AddMissingCharacters(font);
             }
         }
 
@@ -184,11 +204,19 @@ namespace TMPro
                 m_CharNonexistentCharacters.Add(font, nonexistentCharacters);
             }
 
-
+            // 重设的话，要把所有用到的文本组件刷一下，不然会有残留影像
             font.ClearFontAssetData();
             m_CharMissingCharacters.Clear();
             bool ret = font.TryAddCharacters(m_CharTryAddCharacters, m_CharMissingCharacters);
             MissingCharactersToNonexistent(font, nonexistentCharacters, charRefDictionary);
+
+            foreach (var kv in m_TextOldCharacterDictionary)
+            {
+                if (kv.Key)
+                {
+                    kv.Key.SetVerticesDirty();
+                }
+            }
         }
 
         private void RemoveFontCharacterLookup(TMP_Text textObject)
@@ -209,7 +237,12 @@ namespace TMPro
                 }
             }
 
-            var font = GetDynamicFontAsset(textObject.font);
+            RemoveUsedCharacters(textObject.font);
+        }
+
+        private void RemoveUsedCharacters(TMP_FontAsset font)
+        {
+            font = GetNextDynamicFontAsset(font);
             if (font == null)
             {
                 return;
@@ -237,6 +270,8 @@ namespace TMPro
                     }
                 }
             }
+
+            RemoveUsedCharacters(font);
             m_CharMissingCharacters.Clear();
         }
 
@@ -266,13 +301,8 @@ namespace TMPro
             return false;
         }
 
-        private TMP_FontAsset GetDynamicFontAsset(TMP_FontAsset font)
+        private TMP_FontAsset GetNextDynamicFontAsset(TMP_FontAsset font)
         {
-            if (font.atlasPopulationMode == AtlasPopulationMode.Dynamic)
-            {
-                return font;
-            }
-
             if (font.fallbackFontAssetTable != null && font.fallbackFontAssetTable.Count > 0)
             {
                 for (int i = 0; i < font.fallbackFontAssetTable.Count && font.fallbackFontAssetTable[i] != null; i++)
