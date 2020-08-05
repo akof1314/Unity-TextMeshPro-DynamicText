@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace TMPro
 {
-    public class TMP_TextParsingUtilities 
+    public class TMP_TextParsingUtilities
     {
         private static readonly TMP_TextParsingUtilities s_Instance = new TMP_TextParsingUtilities();
 
@@ -26,9 +26,9 @@ namespace TMPro
         /// <summary>
         /// Function returning the hashcode value of a given string.
         /// </summary>
-        public static uint GetHashCode(string s)
+        public static int GetHashCode(string s)
         {
-            uint hashCode = 0;
+            int hashCode = 0;
 
             for (int i = 0; i < s.Length; i++)
                 hashCode = ((hashCode << 5) + hashCode) ^ ToUpperASCIIFast(s[i]);

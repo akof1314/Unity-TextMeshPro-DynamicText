@@ -1,13 +1,13 @@
 ﻿using UnityEngine;
 using System;
 using System.Collections;
+using Object = UnityEngine.Object;
 
-#pragma warning disable 0109 // Disable warning due to conflict between Unity Editor DLL and Runtime DLL related to .renderer property being available in one but not the other. 
+#pragma warning disable 0109 // Disable warning due to conflict between Unity Editor DLL and Runtime DLL related to .renderer property being available in one but not the other.
 
 namespace TMPro
 {
     [RequireComponent(typeof(MeshRenderer))]
-    [RequireComponent(typeof(MeshFilter))]
     [ExecuteAlways]
     public class TMP_SubMesh : MonoBehaviour
     {
@@ -149,11 +149,22 @@ namespace TMPro
         /// </summary>
         public MeshFilter meshFilter
         {
-            get { if (m_meshFilter == null) m_meshFilter = GetComponent<MeshFilter>();
+            get
+            {
+                if (m_meshFilter == null)
+                {
+                    m_meshFilter = GetComponent<MeshFilter>();
+
+                    if (m_meshFilter == null)
+                    {
+                        m_meshFilter = gameObject.AddComponent<MeshFilter>();
+                        m_meshFilter.hideFlags = HideFlags.HideInInspector | HideFlags.HideAndDontSave;
+                    }
+                }
+
                 return m_meshFilter;
             }
         }
-        [SerializeField]
         private MeshFilter m_meshFilter;
 
 
@@ -168,7 +179,6 @@ namespace TMPro
                 {
                     m_mesh = new Mesh();
                     m_mesh.hideFlags = HideFlags.HideAndDontSave;
-                    this.meshFilter.mesh = m_mesh;
                 }
 
                 return m_mesh;
@@ -178,7 +188,7 @@ namespace TMPro
         private Mesh m_mesh;
 
         /// <summary>
-        /// 
+        ///
         /// </summary>
         //public BoxCollider boxCollider
         //{
@@ -201,6 +211,20 @@ namespace TMPro
         //[SerializeField]
         //private BoxCollider m_boxCollider;
 
+
+        /// <summary>
+        /// Reference to the parent Text Component.
+        /// </summary>
+        public TMP_Text textComponent
+        {
+            get
+            {
+                if (m_TextComponent == null)
+                    m_TextComponent = GetComponentInParent<TextMeshPro>();
+
+                return m_TextComponent;
+            }
+        }
         [SerializeField]
         private TextMeshPro m_TextComponent;
 
@@ -208,8 +232,36 @@ namespace TMPro
         private bool m_isRegisteredForEvents;
 
 
+        public static TMP_SubMesh AddSubTextObject(TextMeshPro textComponent, MaterialReference materialReference)
+        {
+            GameObject go = new GameObject("TMP SubMesh [" + materialReference.material.name + "]", typeof(TMP_SubMesh));
+            go.hideFlags = HideFlags.DontSave;
+
+            TMP_SubMesh subMesh = go.GetComponent<TMP_SubMesh>();
+
+            go.transform.SetParent(textComponent.transform, false);
+            go.transform.localPosition = Vector3.zero;
+            go.transform.localRotation = Quaternion.identity;
+            go.transform.localScale = Vector3.one;
+            go.layer = textComponent.gameObject.layer;
+
+            subMesh.m_TextComponent = textComponent;
+            subMesh.m_fontAsset = materialReference.fontAsset;
+            subMesh.m_spriteAsset = materialReference.spriteAsset;
+            subMesh.m_isDefaultMaterial = materialReference.isDefaultMaterial;
+            subMesh.SetSharedMaterial(materialReference.material);
+
+            subMesh.renderer.sortingLayerID = textComponent.renderer.sortingLayerID;
+            subMesh.renderer.sortingOrder = textComponent.renderer.sortingOrder;
+
+            return subMesh;
+        }
+
+
         void OnEnable()
         {
+            //Debug.Log("***** OnEnable() called on object ID " + GetInstanceID() + "]. Parent Text Object ID [" + (textComponent == null ? "" : textComponent.GetInstanceID().ToString()) + "] *****");
+
             // Register Callbacks for various events.
             if (!m_isRegisteredForEvents)
             {
@@ -226,6 +278,10 @@ namespace TMPro
                 m_isRegisteredForEvents = true;
             }
 
+            // Update HideFlags on previously created sub text objects.
+            if (hideFlags != HideFlags.DontSave)
+                hideFlags = HideFlags.DontSave;
+
             // Make the geometry visible when the object is enabled.
             meshFilter.sharedMesh = mesh;
 
@@ -237,6 +293,8 @@ namespace TMPro
 
         void OnDisable()
         {
+            //Debug.Log("***** OnDisable() called on Sub Object ID [" + GetInstanceID() + "]. Parent Text Object ID [" + textComponent.GetInstanceID() + "] *****");
+
             // Hide the geometry when the object is disabled.
             m_meshFilter.sharedMesh = null;
 
@@ -245,13 +303,13 @@ namespace TMPro
                 TMP_MaterialManager.ReleaseFallbackMaterial(m_fallbackMaterial);
                 m_fallbackMaterial = null;
             }
-
-
         }
 
 
         void OnDestroy()
         {
+            //Debug.Log("***** OnDestroy() called on Sub Object ID [" + GetInstanceID() + "]. Parent Text Object ID [" + textComponent.GetInstanceID() + "] *****");
+
             // Destroy Mesh
             if (m_mesh != null) DestroyImmediate(m_mesh);
 
@@ -272,6 +330,10 @@ namespace TMPro
             //TMPro_EventManager.TMP_SETTINGS_PROPERTY_EVENT.Remove(ON_TMP_SETTINGS_CHANGED);
             #endif
             m_isRegisteredForEvents = false;
+
+            // Notify parent text object
+            m_TextComponent.havePropertiesChanged = true;
+            m_TextComponent.SetAllDirty();
         }
 
 
@@ -281,21 +343,38 @@ namespace TMPro
         void ON_MATERIAL_PROPERTY_CHANGED(bool isChanged, Material mat)
         {
             //Debug.Log("*** ON_MATERIAL_PROPERTY_CHANGED ***");
+            if (m_sharedMaterial == null)
+                return;
+
             int targetMaterialID = mat.GetInstanceID();
             int sharedMaterialID = m_sharedMaterial.GetInstanceID();
             int fallbackSourceMaterialID = m_fallbackSourceMaterial == null ? 0 : m_fallbackSourceMaterial.GetInstanceID();
+
+            // Sync culling with parent text object
+            bool hasCullModeProperty = m_sharedMaterial.HasProperty(ShaderUtilities.ShaderTag_CullMode);
+            float cullMode = 0;
+
+            if (hasCullModeProperty)
+            {
+                cullMode = textComponent.fontSharedMaterial.GetFloat(ShaderUtilities.ShaderTag_CullMode);
+                m_sharedMaterial.SetFloat(ShaderUtilities.ShaderTag_CullMode, cullMode);
+            }
 
             // Filter events and return if the affected material is not this object's material.
             if (targetMaterialID != sharedMaterialID)
             {
                 // Check if event applies to the source fallback material
-                if (m_fallbackMaterial != null && fallbackSourceMaterialID == targetMaterialID)
+                if (m_fallbackMaterial != null && fallbackSourceMaterialID == targetMaterialID && TMP_Settings.matchMaterialPreset)
+                {
                     TMP_MaterialManager.CopyMaterialPresetProperties(mat, m_fallbackMaterial);
+
+                    // Re-sync culling with parent text object
+                    if (hasCullModeProperty)
+                        m_fallbackMaterial.SetFloat(ShaderUtilities.ShaderTag_CullMode, cullMode);
+                }
                 else
                     return;
             }
-
-            if (m_TextComponent == null) m_TextComponent = GetComponentInParent<TextMeshPro>();
 
             m_padding = GetPaddingForMaterial();
 
@@ -343,15 +422,18 @@ namespace TMPro
         }
 
         // Event received when font asset properties are changed in Font Inspector
-        void ON_FONT_PROPERTY_CHANGED(bool isChanged, TMP_FontAsset font)
+        void ON_FONT_PROPERTY_CHANGED(bool isChanged, Object fontAsset)
         {
-            if (m_fontAsset != null && font.GetInstanceID() == m_fontAsset.GetInstanceID())
+            if (m_fontAsset != null && fontAsset.GetInstanceID() == m_fontAsset.GetInstanceID())
             {
                 // Copy Normal and Bold Weight
                 if (m_fallbackMaterial != null)
                 {
-                    m_fallbackMaterial.SetFloat(ShaderUtilities.ID_WeightNormal, m_fontAsset.normalStyle);
-                    m_fallbackMaterial.SetFloat(ShaderUtilities.ID_WeightBold, m_fontAsset.boldStyle);
+                    if (TMP_Settings.matchMaterialPreset)
+                    {
+                        TMP_MaterialManager.ReleaseFallbackMaterial(m_fallbackMaterial);
+                        TMP_MaterialManager.CleanupFallbackMaterials();
+                    }
                 }
             }
         }
@@ -366,34 +448,6 @@ namespace TMPro
         //    SetMaterialDirty();
         }
         #endif
-
-
-
-        public static TMP_SubMesh AddSubTextObject(TextMeshPro textComponent, MaterialReference materialReference)
-        {
-            GameObject go = new GameObject("TMP SubMesh [" + materialReference.material.name + "]", typeof(TMP_SubMesh));
-
-            TMP_SubMesh subMesh = go.GetComponent<TMP_SubMesh>();
-
-            go.transform.SetParent(textComponent.transform, false);
-            go.transform.localPosition = Vector3.zero;
-            go.transform.localRotation = Quaternion.identity;
-            go.transform.localScale = Vector3.one;
-            go.layer = textComponent.gameObject.layer;
-
-            subMesh.m_meshFilter = go.GetComponent<MeshFilter>();
-
-            subMesh.m_TextComponent = textComponent;
-            subMesh.m_fontAsset = materialReference.fontAsset;
-            subMesh.m_spriteAsset = materialReference.spriteAsset;
-            subMesh.m_isDefaultMaterial = materialReference.isDefaultMaterial;
-            subMesh.SetSharedMaterial(materialReference.material);
-
-            subMesh.renderer.sortingLayerID = textComponent.renderer.sortingLayerID;
-            subMesh.renderer.sortingOrder = textComponent.renderer.sortingOrder;
-
-            return subMesh;
-        }
 
 
         public void DestroySelf()
@@ -415,7 +469,7 @@ namespace TMPro
 
             m_sharedMaterial = m_material;
 
-            // Compute and Set new padding values for this new material. 
+            // Compute and Set new padding values for this new material.
             m_padding = GetPaddingForMaterial();
 
             SetVerticesDirty();
@@ -464,7 +518,7 @@ namespace TMPro
             // Assign new material.
             m_sharedMaterial = mat;
 
-            // Compute and Set new padding values for this new material. 
+            // Compute and Set new padding values for this new material.
             m_padding = GetPaddingForMaterial();
 
             SetMaterialDirty();
@@ -500,7 +554,7 @@ namespace TMPro
 
 
         /// <summary>
-        /// 
+        ///
         /// </summary>
         public void SetVerticesDirty()
         {
@@ -517,7 +571,7 @@ namespace TMPro
 
 
         /// <summary>
-        /// 
+        ///
         /// </summary>
         public void SetMaterialDirty()
         {
@@ -532,18 +586,22 @@ namespace TMPro
 
 
         /// <summary>
-        /// 
+        ///
         /// </summary>
         protected void UpdateMaterial()
         {
             //Debug.Log("*** STO - UpdateMaterial() *** FRAME (" + Time.frameCount + ")");
 
-            //if (!this.enabled)
-            //    return;
-
-            if (m_renderer == null) m_renderer = this.renderer;
+            if (renderer == null || m_sharedMaterial == null) return;
 
             m_renderer.sharedMaterial = m_sharedMaterial;
+
+            // Special handling to keep the Culling of the material in sync with parent text object
+            if (m_sharedMaterial.HasProperty(ShaderUtilities.ShaderTag_CullMode))
+            {
+                float cullMode = textComponent.fontSharedMaterial.GetFloat(ShaderUtilities.ShaderTag_CullMode);
+                m_sharedMaterial.SetFloat(ShaderUtilities.ShaderTag_CullMode, cullMode);
+            }
 
             #if UNITY_EDITOR
             if (m_sharedMaterial != null && gameObject.name != "TMP SubMesh [" + m_sharedMaterial.name + "]")
@@ -552,7 +610,7 @@ namespace TMPro
         }
 
         /// <summary>
-        /// 
+        ///
         /// </summary>
         //public void UpdateColliders(int vertexCount)
         //{

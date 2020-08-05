@@ -1,10 +1,15 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEditor;
 using UnityEditorInternal;
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine.TextCore;
 using UnityEngine.TextCore.LowLevel;
+
+#if UNITY_EDITOR && UNITY_2018_4_OR_NEWER
+    #if !(UNITY_2018_4_0 || UNITY_2018_4_1 || UNITY_2018_4_2 || UNITY_2018_4_3 || UNITY_2018_4_4)
+    using UnityEditor.TextCore.LowLevel;
+    #endif
+#endif
 
 
 namespace TMPro.EditorUtilities
@@ -73,7 +78,7 @@ namespace TMPro.EditorUtilities
             {
                 if (s_InternalSDFMaterial == null)
                 {
-                    Shader shader = Shader.Find("Hidden/TextMeshPro/Internal/Distance Field SSD");
+                    Shader shader = Shader.Find("Hidden/TMP/Internal/Editor/Distance Field SSD");
 
                     if (shader != null)
                         s_InternalSDFMaterial = new Material(shader);
@@ -143,7 +148,7 @@ namespace TMPro.EditorUtilities
 
         private string m_KerningTableSearchPattern;
         private List<int> m_KerningTableSearchList;
-        
+
         private bool m_isSearchDirty;
 
         private const string k_UndoRedo = "UndoRedoPerformed";
@@ -157,6 +162,7 @@ namespace TMPro.EditorUtilities
         private SerializedProperty m_AtlasPadding_prop;
         private SerializedProperty m_AtlasWidth_prop;
         private SerializedProperty m_AtlasHeight_prop;
+        private SerializedProperty m_IsMultiAtlasTexturesEnabled_prop;
 
         private SerializedProperty fontWeights_prop;
 
@@ -207,6 +213,7 @@ namespace TMPro.EditorUtilities
             m_AtlasPadding_prop = serializedObject.FindProperty("m_AtlasPadding");
             m_AtlasWidth_prop = serializedObject.FindProperty("m_AtlasWidth");
             m_AtlasHeight_prop = serializedObject.FindProperty("m_AtlasHeight");
+            m_IsMultiAtlasTexturesEnabled_prop = serializedObject.FindProperty("m_IsMultiAtlasTexturesEnabled");
 
             fontWeights_prop = serializedObject.FindProperty("m_FontWeightTable");
 
@@ -259,6 +266,9 @@ namespace TMPro.EditorUtilities
 
             m_GlyphSearchList = new List<int>();
             m_KerningTableSearchList = new List<int>();
+
+            // Sort Font Asset Tables
+            m_fontAsset.SortAllTables();
         }
 
 
@@ -356,171 +366,171 @@ namespace TMPro.EditorUtilities
                     m_fontAsset.m_SourceFontFile_EditorRef = sourceFont;
                 }
 
-                EditorGUI.BeginChangeCheck();
-                EditorGUILayout.PropertyField(m_AtlasPopulationMode_prop, new GUIContent("Atlas Population Mode"));
-                if (EditorGUI.EndChangeCheck())
+                EditorGUI.BeginDisabledGroup(sourceFont == null);
                 {
-                    serializedObject.ApplyModifiedProperties();
-
-                    bool isDatabaseRefreshRequired = false;
-
-                    if (m_AtlasPopulationMode_prop.intValue == 0)
+                    EditorGUI.BeginChangeCheck();
+                    EditorGUILayout.PropertyField(m_AtlasPopulationMode_prop, new GUIContent("Atlas Population Mode"));
+                    if (EditorGUI.EndChangeCheck())
                     {
-                        m_fontAsset.sourceFontFile = null;
+                        serializedObject.ApplyModifiedProperties();
 
-                        // Set atlas textures to non readable.
-                        //for (int i = 0; i < m_fontAsset.atlasTextures.Length; i++)
-                        //{
-                        //    Texture2D tex = m_fontAsset.atlasTextures[i];
+                        bool isDatabaseRefreshRequired = false;
 
-                        //    if (tex != null && tex.isReadable)
-                        //    {
-                        //        string texPath = AssetDatabase.GetAssetPath(tex);
-                        //        var texImporter = AssetImporter.GetAtPath(texPath) as TextureImporter;
-                        //        if (texImporter != null)
-                        //        {
-                        //            texImporter.isReadable = false;
-                        //            AssetDatabase.ImportAsset(texPath);
-                        //            isDatabaseRefreshRequired = true;
-                        //        }
-                        //    }
-                        //}
-
-                        Debug.Log("Atlas Population mode set to [Static].");
-                    }
-                    else if (m_AtlasPopulationMode_prop.intValue == 1)
-                    {
-                        if (m_fontAsset.m_SourceFontFile_EditorRef.dynamic == false)
+                        if (m_AtlasPopulationMode_prop.intValue == 0)
                         {
-                            Debug.LogWarning("Please set the [" + m_fontAsset.name + "] font to dynamic mode as this is required for Dynamic SDF support.", m_fontAsset.m_SourceFontFile_EditorRef);
-                            m_AtlasPopulationMode_prop.intValue = 0;
+                            m_fontAsset.sourceFontFile = null;
 
-                            serializedObject.ApplyModifiedProperties();
-                        }
-                        else
-                        {
-                            m_fontAsset.sourceFontFile = m_fontAsset.m_SourceFontFile_EditorRef;
-
-                            /*
-                            // Set atlas textures to non readable.
+                            //Set atlas textures to non readable.
                             for (int i = 0; i < m_fontAsset.atlasTextures.Length; i++)
                             {
                                 Texture2D tex = m_fontAsset.atlasTextures[i];
 
-                                if (tex != null && tex.isReadable == false)
+                                if (tex != null && tex.isReadable)
                                 {
-                                    string texPath = AssetDatabase.GetAssetPath(tex.GetInstanceID());
-                                    Object[] paths = AssetDatabase.LoadAllAssetsAtPath(texPath);
-                                    var texImporter = AssetImporter.GetAtPath(texPath) as TextureImporter;
-                                    if (texImporter != null)
-                                    {
-                                        texImporter.isReadable = true;
-                                        AssetDatabase.ImportAsset(texPath);
-                                        isDatabaseRefreshRequired = true;
-                                    }
+                                    #if UNITY_EDITOR && UNITY_2018_4_OR_NEWER
+                                        #if !(UNITY_2018_4_0 || UNITY_2018_4_1 || UNITY_2018_4_2 || UNITY_2018_4_3 || UNITY_2018_4_4)
+                                        FontEngineEditorUtilities.SetAtlasTextureIsReadable(tex, false);
+                                        #endif
+                                    #endif
                                 }
                             }
-                            */
-                            Debug.Log("Atlas Population mode set to [Dynamic].");
+
+                            Debug.Log("Atlas Population mode set to [Static].");
                         }
-                    }
-
-                    if (isDatabaseRefreshRequired)
-                        AssetDatabase.Refresh();
-
-                    serializedObject.Update();
-                    isAssetDirty = true;
-                }
-
-                GUI.enabled = true;
-                // Save state of atlas settings
-                if (m_DisplayDestructiveChangeWarning == false)
-                {
-                    SavedAtlasGenerationSettings();
-                    //Undo.RegisterCompleteObjectUndo(m_fontAsset, "Font Asset Changes");
-                }
-
-                EditorGUI.BeginChangeCheck();
-                // TODO: Switch shaders depending on GlyphRenderMode.
-                EditorGUILayout.PropertyField(m_AtlasRenderMode_prop);
-                EditorGUILayout.PropertyField(m_SamplingPointSize_prop, new GUIContent("Sampling Point Size"));
-                if (EditorGUI.EndChangeCheck())
-                {
-                    m_DisplayDestructiveChangeWarning = true;
-                }
-
-                // Changes to these properties require updating Material Presets for this font asset.
-                EditorGUI.BeginChangeCheck();
-                EditorGUILayout.PropertyField(m_AtlasPadding_prop, new GUIContent("Padding"));
-                EditorGUILayout.IntPopup(m_AtlasWidth_prop, m_AtlasResolutionLabels, m_AtlasResolutions, new GUIContent("Atlas Width"));
-                EditorGUILayout.IntPopup(m_AtlasHeight_prop, m_AtlasResolutionLabels, m_AtlasResolutions, new GUIContent("Atlas Height"));
-                if (EditorGUI.EndChangeCheck())
-                {
-                    m_MaterialPresetsRequireUpdate = true;
-                    m_DisplayDestructiveChangeWarning = true;
-                }
-
-                if (m_DisplayDestructiveChangeWarning)
-                {
-                    // These changes are destructive on the font asset
-                    rect = EditorGUILayout.GetControlRect(false, 60);
-                    rect.x += 15;
-                    rect.width -= 15;
-                    EditorGUI.HelpBox(rect, "Changing these settings will clear the font asset's character, glyph and texture data.", MessageType.Warning);
-
-                    if (GUI.Button(new Rect(rect.width - 140, rect.y + 36, 80, 18), new GUIContent("Apply")))
-                    {
-                        m_DisplayDestructiveChangeWarning = false;
-
-                        // Update face info is sampling point size was changed.
-                        if (m_AtlasSettings.pointSize != m_SamplingPointSize_prop.intValue)
+                        else if (m_AtlasPopulationMode_prop.intValue == 1)
                         {
-                            FontEngine.LoadFontFace(m_fontAsset.sourceFontFile, m_SamplingPointSize_prop.intValue);
-                            m_fontAsset.faceInfo = FontEngine.GetFaceInfo();
-                        }
-
-                        // Update material
-                        m_fontAsset.material.SetFloat(ShaderUtilities.ID_TextureWidth, m_AtlasWidth_prop.intValue);
-                        m_fontAsset.material.SetFloat(ShaderUtilities.ID_TextureHeight, m_AtlasHeight_prop.intValue);
-                        m_fontAsset.material.SetFloat(ShaderUtilities.ID_GradientScale, m_AtlasPadding_prop.intValue + 1);
-
-                        // Update material presets if any of the relevant properties have been changed.
-                        if (m_MaterialPresetsRequireUpdate)
-                        {
-                            m_MaterialPresetsRequireUpdate = false;
-
-                            Material[] materialPresets = TMP_EditorUtility.FindMaterialReferences(m_fontAsset);
-                            for (int i = 0; i < materialPresets.Length; i++)
+                            if (m_fontAsset.m_SourceFontFile_EditorRef.dynamic == false)
                             {
-                                Material mat = materialPresets[i];
+                                Debug.LogWarning("Please set the [" + m_fontAsset.name + "] font to dynamic mode as this is required for Dynamic SDF support.", m_fontAsset.m_SourceFontFile_EditorRef);
+                                m_AtlasPopulationMode_prop.intValue = 0;
 
-                                mat.SetFloat(ShaderUtilities.ID_TextureWidth, m_AtlasWidth_prop.intValue);
-                                mat.SetFloat(ShaderUtilities.ID_TextureHeight, m_AtlasHeight_prop.intValue);
-                                mat.SetFloat(ShaderUtilities.ID_GradientScale, m_AtlasPadding_prop.intValue + 1);
+                                serializedObject.ApplyModifiedProperties();
+                            }
+                            else
+                            {
+                                m_fontAsset.sourceFontFile = m_fontAsset.m_SourceFontFile_EditorRef;
+
+                                // Set atlas textures to non readable.
+                                for (int i = 0; i < m_fontAsset.atlasTextures.Length; i++)
+                                {
+                                    Texture2D tex = m_fontAsset.atlasTextures[i];
+
+                                    if (tex != null && tex.isReadable == false)
+                                    {
+                                        #if UNITY_EDITOR && UNITY_2018_4_OR_NEWER
+                                            #if !(UNITY_2018_4_0 || UNITY_2018_4_1 || UNITY_2018_4_2 || UNITY_2018_4_3 || UNITY_2018_4_4)
+                                            FontEngineEditorUtilities.SetAtlasTextureIsReadable(tex, true);
+                                            #endif
+                                        #endif
+                                    }
+                                }
+
+                                Debug.Log("Atlas Population mode set to [Dynamic].");
                             }
                         }
 
-                        m_fontAsset.ClearFontAssetData();
-                        GUIUtility.keyboardControl = 0;
+                        if (isDatabaseRefreshRequired)
+                            AssetDatabase.Refresh();
+
+                        serializedObject.Update();
                         isAssetDirty = true;
-
-                        // Update Font Asset Creation Settings to reflect new changes.
-                        UpdateFontAssetCreationSettings();
-
-                        // TODO: Clear undo buffers.
-                        //Undo.ClearUndo(m_fontAsset);
                     }
 
-                    if (GUI.Button(new Rect(rect.width - 56, rect.y + 36, 80, 18), new GUIContent("Revert")))
+                    // Save state of atlas settings
+                    if (m_DisplayDestructiveChangeWarning == false)
                     {
-                        m_DisplayDestructiveChangeWarning = false;
-                        RestoreAtlasGenerationSettings();
-                        GUIUtility.keyboardControl = 0;
-
-                        // TODO: Clear undo buffers.
-                        //Undo.ClearUndo(m_fontAsset);
+                        SavedAtlasGenerationSettings();
+                        //Undo.RegisterCompleteObjectUndo(m_fontAsset, "Font Asset Changes");
                     }
+
+                    EditorGUI.BeginDisabledGroup(m_AtlasPopulationMode_prop.intValue == (int)AtlasPopulationMode.Static);
+                    {
+                        EditorGUI.BeginChangeCheck();
+                        // TODO: Switch shaders depending on GlyphRenderMode.
+                        EditorGUILayout.PropertyField(m_AtlasRenderMode_prop);
+                        EditorGUILayout.PropertyField(m_SamplingPointSize_prop, new GUIContent("Sampling Point Size"));
+                        if (EditorGUI.EndChangeCheck())
+                        {
+                            m_DisplayDestructiveChangeWarning = true;
+                        }
+
+                        // Changes to these properties require updating Material Presets for this font asset.
+                        EditorGUI.BeginChangeCheck();
+                        EditorGUILayout.PropertyField(m_AtlasPadding_prop, new GUIContent("Padding"));
+                        EditorGUILayout.IntPopup(m_AtlasWidth_prop, m_AtlasResolutionLabels, m_AtlasResolutions, new GUIContent("Atlas Width"));
+                        EditorGUILayout.IntPopup(m_AtlasHeight_prop, m_AtlasResolutionLabels, m_AtlasResolutions, new GUIContent("Atlas Height"));
+                        EditorGUILayout.PropertyField(m_IsMultiAtlasTexturesEnabled_prop, new GUIContent("Multi Atlas Textures", "Determines if the font asset will store glyphs in multiple atlas textures."));
+                        if (EditorGUI.EndChangeCheck())
+                        {
+                            m_MaterialPresetsRequireUpdate = true;
+                            m_DisplayDestructiveChangeWarning = true;
+                        }
+
+                        if (m_DisplayDestructiveChangeWarning)
+                        {
+                            // These changes are destructive on the font asset
+                            rect = EditorGUILayout.GetControlRect(false, 60);
+                            rect.x += 15;
+                            rect.width -= 15;
+                            EditorGUI.HelpBox(rect, "Changing these settings will clear the font asset's character, glyph and texture data.", MessageType.Warning);
+
+                            if (GUI.Button(new Rect(rect.width - 140, rect.y + 36, 80, 18), new GUIContent("Apply")))
+                            {
+                                m_DisplayDestructiveChangeWarning = false;
+
+                                // Update face info is sampling point size was changed.
+                                if (m_AtlasSettings.pointSize != m_SamplingPointSize_prop.intValue)
+                                {
+                                    FontEngine.LoadFontFace(m_fontAsset.sourceFontFile, m_SamplingPointSize_prop.intValue);
+                                    m_fontAsset.faceInfo = FontEngine.GetFaceInfo();
+                                }
+
+                                // Update material
+                                m_fontAsset.material.SetFloat(ShaderUtilities.ID_TextureWidth, m_AtlasWidth_prop.intValue);
+                                m_fontAsset.material.SetFloat(ShaderUtilities.ID_TextureHeight, m_AtlasHeight_prop.intValue);
+                                m_fontAsset.material.SetFloat(ShaderUtilities.ID_GradientScale, m_AtlasPadding_prop.intValue + 1);
+
+                                // Update material presets if any of the relevant properties have been changed.
+                                if (m_MaterialPresetsRequireUpdate)
+                                {
+                                    m_MaterialPresetsRequireUpdate = false;
+
+                                    Material[] materialPresets = TMP_EditorUtility.FindMaterialReferences(m_fontAsset);
+                                    for (int i = 0; i < materialPresets.Length; i++)
+                                    {
+                                        Material mat = materialPresets[i];
+
+                                        mat.SetFloat(ShaderUtilities.ID_TextureWidth, m_AtlasWidth_prop.intValue);
+                                        mat.SetFloat(ShaderUtilities.ID_TextureHeight, m_AtlasHeight_prop.intValue);
+                                        mat.SetFloat(ShaderUtilities.ID_GradientScale, m_AtlasPadding_prop.intValue + 1);
+                                    }
+                                }
+
+                                m_fontAsset.UpdateFontAssetData();
+                                GUIUtility.keyboardControl = 0;
+                                isAssetDirty = true;
+
+                                // Update Font Asset Creation Settings to reflect new changes.
+                                UpdateFontAssetCreationSettings();
+
+                                // TODO: Clear undo buffers.
+                                //Undo.ClearUndo(m_fontAsset);
+                            }
+
+                            if (GUI.Button(new Rect(rect.width - 56, rect.y + 36, 80, 18), new GUIContent("Revert")))
+                            {
+                                m_DisplayDestructiveChangeWarning = false;
+                                RestoreAtlasGenerationSettings();
+                                GUIUtility.keyboardControl = 0;
+
+                                // TODO: Clear undo buffers.
+                                //Undo.ClearUndo(m_fontAsset);
+                            }
+                        }
+                    }
+                    EditorGUI.EndDisabledGroup();
                 }
+                EditorGUI.EndDisabledGroup();
                 EditorGUILayout.Space();
             }
             #endregion
@@ -567,10 +577,10 @@ namespace TMPro.EditorUtilities
                 rect = EditorGUILayout.GetControlRect(true);
                 rect.x += EditorGUIUtility.labelWidth;
                 rect.width = (rect.width - EditorGUIUtility.labelWidth) / 2f;
-                GUI.Label(rect, "Regular Tyepface", EditorStyles.label);
+                GUI.Label(rect, "Regular Typeface", EditorStyles.label);
                 rect.x += rect.width;
                 GUI.Label(rect, "Italic Typeface", EditorStyles.label);
-                
+
                 EditorGUI.indentLevel = 1;
 
                 EditorGUILayout.PropertyField(fontWeights_prop.GetArrayElementAtIndex(1), new GUIContent("100 - Thin"));
@@ -612,7 +622,7 @@ namespace TMPro.EditorUtilities
                         m_materialPresets[i].SetFloat("_WeightBold", font_boldStyle_prop.floatValue);
                 }
                 EditorGUILayout.EndHorizontal();
-                
+
                 EditorGUILayout.BeginHorizontal();
                 EditorGUILayout.PropertyField(font_normalSpacing_prop, new GUIContent("Spacing Offset"));
                 font_normalSpacing_prop.floatValue = Mathf.Clamp(font_normalSpacing_prop.floatValue, -100, 100);
@@ -628,11 +638,11 @@ namespace TMPro.EditorUtilities
                     GUI.changed = false;
                 }
                 EditorGUILayout.EndHorizontal();
-                
+
                 EditorGUILayout.BeginHorizontal();
                 EditorGUILayout.PropertyField(font_italicStyle_prop, new GUIContent("Italic Style"));
                 font_italicStyle_prop.intValue = Mathf.Clamp(font_italicStyle_prop.intValue, 15, 60);
-                
+
                 EditorGUILayout.PropertyField(font_tabSize_prop, new GUIContent("Tab Multiple"));
                 EditorGUILayout.EndHorizontal();
                 EditorGUILayout.EndVertical();
@@ -669,7 +679,9 @@ namespace TMPro.EditorUtilities
             EditorGUI.indentLevel = 0;
             rect = EditorGUILayout.GetControlRect(false, 24);
 
-            if (GUI.Button(rect, new GUIContent("<b>Character Table</b>", "List of characters contained in this font asset."), TMP_UIStyleManager.sectionHeader)) 
+            int characterCount = m_fontAsset.characterTable.Count;
+
+            if (GUI.Button(rect, new GUIContent("<b>Character Table</b>   [" + characterCount + "]" + (rect.width > 320 ? " Characters" : ""), "List of characters contained in this font asset."), TMP_UIStyleManager.sectionHeader))
                 UI_PanelState.characterTablePanel = !UI_PanelState.characterTablePanel;
 
             GUI.Label(rect, (UI_PanelState.characterTablePanel ? "" : s_UiStateLabel[1]), TMP_UIStyleManager.rightLabel);
@@ -866,7 +878,9 @@ namespace TMPro.EditorUtilities
 
             GUIStyle glyphPanelStyle = new GUIStyle(EditorStyles.helpBox);
 
-            if (GUI.Button(rect, new GUIContent("<b>Glyph Table</b>", "List of glyphs contained in this font asset."), TMP_UIStyleManager.sectionHeader))
+            int glyphCount = m_fontAsset.glyphTable.Count;
+
+            if (GUI.Button(rect, new GUIContent("<b>Glyph Table</b>   [" + glyphCount + "]" + (rect.width > 275 ? " Glyphs" : ""), "List of glyphs contained in this font asset."), TMP_UIStyleManager.sectionHeader))
                 UI_PanelState.glyphTablePanel = !UI_PanelState.glyphTablePanel;
 
             GUI.Label(rect, (UI_PanelState.glyphTablePanel ? "" : s_UiStateLabel[1]), TMP_UIStyleManager.rightLabel);
@@ -920,7 +934,7 @@ namespace TMPro.EditorUtilities
                 EditorGUILayout.EndVertical();
 
                 // Display Glyph Table Elements
-                
+
                 if (arraySize > 0)
                 {
                     // Display each GlyphInfo entry using the GlyphInfo property drawer.
@@ -1061,7 +1075,9 @@ namespace TMPro.EditorUtilities
             EditorGUI.indentLevel = 0;
             rect = EditorGUILayout.GetControlRect(false, 24);
 
-            if (GUI.Button(rect, new GUIContent("<b>Glyph Adjustment Table</b>", "List of glyph adjustment / advanced kerning pairs."), TMP_UIStyleManager.sectionHeader))
+            int adjustmentPairCount = m_fontAsset.fontFeatureTable.glyphPairAdjustmentRecords.Count;
+
+            if (GUI.Button(rect, new GUIContent("<b>Glyph Adjustment Table</b>   [" + adjustmentPairCount + "]" + (rect.width > 340 ? " Records" : ""), "List of glyph adjustment / advanced kerning pairs."), TMP_UIStyleManager.sectionHeader))
                 UI_PanelState.fontFeatureTablePanel = !UI_PanelState.fontFeatureTablePanel;
 
             GUI.Label(rect, (UI_PanelState.fontFeatureTablePanel ? "" : s_UiStateLabel[1]), TMP_UIStyleManager.rightLabel);
@@ -1207,7 +1223,7 @@ namespace TMPro.EditorUtilities
                     TMP_GlyphValueRecord secondValueRecord = GetValueRecord(secondAdjustmentRecordProperty.FindPropertyRelative("m_GlyphValueRecord"));
 
                     errorCode = -1;
-                    long pairKey = (long)secondGlyphIndex << 32 | firstGlyphIndex;
+                    uint pairKey = secondGlyphIndex << 16 | firstGlyphIndex;
                     if (m_FontFeatureTable.m_GlyphPairAdjustmentRecordLookupDictionary.ContainsKey(pairKey) == false)
                     {
                         TMP_GlyphPairAdjustmentRecord adjustmentRecord = new TMP_GlyphPairAdjustmentRecord(new TMP_GlyphAdjustmentRecord(firstGlyphIndex, firstValueRecord), new TMP_GlyphAdjustmentRecord(secondGlyphIndex, secondValueRecord));
@@ -1216,9 +1232,9 @@ namespace TMPro.EditorUtilities
                         errorCode = 0;
                     }
 
+                    // Add glyphs and characters
                     TMP_Character character;
 
-                    // Add glyphs and characters
                     uint firstCharacter = m_SerializedPropertyHolder.firstCharacter;
                     if (!m_fontAsset.characterLookupTable.ContainsKey(firstCharacter))
                         m_fontAsset.TryAddCharacterInternal(firstCharacter, out character);
@@ -1264,7 +1280,7 @@ namespace TMPro.EditorUtilities
                 if (m_DisplayDestructiveChangeWarning == false)
                     TMPro_EventManager.ON_FONT_PROPERTY_CHANGED(true, m_fontAsset);
 
-                if (m_fontAsset.m_IsFontAssetLookupTablesDirty || evt_cmd == k_UndoRedo)
+                if (m_fontAsset.IsFontAssetLookupTablesDirty || evt_cmd == k_UndoRedo)
                     m_fontAsset.ReadFontAssetDefinition();
 
                 isAssetDirty = false;
@@ -1272,7 +1288,7 @@ namespace TMPro.EditorUtilities
             }
 
 
-            // Clear selection if mouse event was not consumed. 
+            // Clear selection if mouse event was not consumed.
             GUI.enabled = true;
             if (currentEvent.type == EventType.MouseDown && currentEvent.button == 0)
                 m_SelectedAdjustmentRecord = -1;
@@ -1409,7 +1425,7 @@ namespace TMPro.EditorUtilities
 
 
         /// <summary>
-        /// 
+        ///
         /// </summary>
         /// <param name="srcGlyphID"></param>
         /// <param name="dstGlyphID"></param>
@@ -1445,7 +1461,7 @@ namespace TMPro.EditorUtilities
         }
 
         /// <summary>
-        /// 
+        ///
         /// </summary>
         /// <param name="glyphID"></param>
         void RemoveGlyphFromList(int index)
@@ -1562,7 +1578,7 @@ namespace TMPro.EditorUtilities
         }
 
         /// <summary>
-        /// 
+        ///
         /// </summary>
         /// <param name="srcGlyph"></param>
         /// <param name="dstGlyph"></param>
@@ -1609,7 +1625,7 @@ namespace TMPro.EditorUtilities
 
 
         /// <summary>
-        /// 
+        ///
         /// </summary>
         /// <param name="searchPattern"></param>
         /// <returns></returns>
@@ -1665,7 +1681,7 @@ namespace TMPro.EditorUtilities
                     searchResults.Add(i);
                 else if (id.ToString("X").Contains(searchPattern))
                     searchResults.Add(i);
-                
+
                 // Check for potential match against decimal id
                 //if (id.ToString().Contains(searchPattern))
                 //    searchResults.Add(i);

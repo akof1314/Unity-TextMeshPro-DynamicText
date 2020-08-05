@@ -7,7 +7,7 @@ namespace TMPro.EditorUtilities
     {
         static ShaderFeature s_OutlineFeature, s_UnderlayFeature, s_BevelFeature, s_GlowFeature, s_MaskFeature;
 
-        static bool s_Face = true, s_Outline = true, s_Underlay, s_Lighting, s_Glow, s_Bevel, s_Light, s_Bump, s_Env;
+        static bool s_Face = true, s_Outline = true, s_Outline2, s_Underlay, s_Lighting, s_Glow, s_Bevel, s_Light, s_Bump, s_Env;
 
         static string[]
             s_FaceUvSpeedNames = { "_FaceUVSpeedX", "_FaceUVSpeedY" },
@@ -73,6 +73,17 @@ namespace TMPro.EditorUtilities
             }
 
             EndPanel();
+
+            if (m_Material.HasProperty(ShaderUtilities.ID_Outline2Color))
+            {
+                s_Outline2 = BeginPanel("Outline 2", s_OutlineFeature, s_Outline2);
+                if (s_Outline2)
+                {
+                    DoOutline2Panel();
+                }
+
+                EndPanel();
+            }
 
             if (m_Material.HasProperty(ShaderUtilities.ID_UnderlayColor))
             {
@@ -233,6 +244,32 @@ namespace TMPro.EditorUtilities
             EditorGUILayout.Space();
         }
 
+        void DoOutline2Panel()
+        {
+            EditorGUI.indentLevel += 1;
+            DoColor("_Outline2Color", "Color");
+            //if (m_Material.HasProperty(ShaderUtilities.ID_OutlineTex))
+            //{
+            //    if (m_Material.HasProperty("_OutlineUVSpeedX"))
+            //    {
+            //        DoTexture2D("_OutlineTex", "Texture", true, s_OutlineUvSpeedNames);
+            //    }
+            //    else
+            //    {
+            //        DoTexture2D("_OutlineTex", "Texture", true);
+            //    }
+            //}
+
+            DoSlider("_Outline2Width", "Thickness");
+            //if (m_Material.HasProperty("_OutlineShininess"))
+            //{
+            //    DoSlider("_OutlineShininess", "Gloss");
+            //}
+
+            EditorGUI.indentLevel -= 1;
+            EditorGUILayout.Space();
+        }
+
         void DoUnderlayPanel()
         {
             EditorGUI.indentLevel += 1;
@@ -386,6 +423,14 @@ namespace TMPro.EditorUtilities
                     m_Material.EnableKeyword("RATIOS_OFF");
                 }
             }
+
+            if (m_Material.HasProperty(ShaderUtilities.ShaderTag_CullMode))
+            {
+                EditorGUILayout.Space();
+                DoPopup("_CullMode", "Cull Mode", s_CullingTypeLabels);
+            }
+
+            EditorGUILayout.Space();
 
             EditorGUI.BeginDisabledGroup(true);
             DoFloat("_ScaleRatioA", "Scale Ratio A");

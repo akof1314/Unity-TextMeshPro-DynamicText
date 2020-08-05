@@ -7,8 +7,10 @@ using UnityEngine.TextCore.LowLevel;
 
 namespace TMPro
 {
+    [Flags]
     public enum FontFeatureLookupFlags
     {
+        None                        =     0x0,
         IgnoreLigatures             =   0x004,
         IgnoreSpacingAdjustments    =   0x100,
     }
@@ -44,16 +46,16 @@ namespace TMPro
         // =============================================
 
         [SerializeField]
-        private float m_XPlacement;
+        internal float m_XPlacement;
 
         [SerializeField]
-        private float m_YPlacement;
+        internal float m_YPlacement;
 
         [SerializeField]
-        private float m_XAdvance;
+        internal float m_XAdvance;
 
         [SerializeField]
-        private float m_YAdvance;
+        internal float m_YAdvance;
 
 
         /// <summary>
@@ -120,10 +122,10 @@ namespace TMPro
         // =============================================
 
         [SerializeField]
-        private uint m_GlyphIndex;
+        internal uint m_GlyphIndex;
 
         [SerializeField]
-        private TMP_GlyphValueRecord m_GlyphValueRecord;
+        internal TMP_GlyphValueRecord m_GlyphValueRecord;
 
         /// <summary>
         /// Constructor
@@ -160,7 +162,7 @@ namespace TMPro
         public TMP_GlyphAdjustmentRecord secondAdjustmentRecord { get { return m_SecondAdjustmentRecord; } set { m_SecondAdjustmentRecord = value; } }
 
         /// <summary>
-        /// 
+        ///
         /// </summary>
         public FontFeatureLookupFlags featureLookupFlags { get { return m_FeatureLookupFlags; } set { m_FeatureLookupFlags = value; } }
 
@@ -169,13 +171,13 @@ namespace TMPro
         // =============================================
 
         [SerializeField]
-        private TMP_GlyphAdjustmentRecord m_FirstAdjustmentRecord;
+        internal TMP_GlyphAdjustmentRecord m_FirstAdjustmentRecord;
 
         [SerializeField]
-        private TMP_GlyphAdjustmentRecord m_SecondAdjustmentRecord;
+        internal TMP_GlyphAdjustmentRecord m_SecondAdjustmentRecord;
 
         [SerializeField]
-        private FontFeatureLookupFlags m_FeatureLookupFlags;
+        internal FontFeatureLookupFlags m_FeatureLookupFlags;
 
         /// <summary>
         /// Constructor
@@ -186,10 +188,11 @@ namespace TMPro
         {
             m_FirstAdjustmentRecord = firstAdjustmentRecord;
             m_SecondAdjustmentRecord = secondAdjustmentRecord;
+            m_FeatureLookupFlags = FontFeatureLookupFlags.None;
         }
 
         /// <summary>
-        /// Internal constructor 
+        /// Internal constructor
         /// </summary>
         /// <param name="firstAdjustmentRecord"></param>
         /// <param name="secondAdjustmentRecord"></param>
@@ -197,6 +200,7 @@ namespace TMPro
         {
             m_FirstAdjustmentRecord = new TMP_GlyphAdjustmentRecord(glyphPairAdjustmentRecord.firstAdjustmentRecord);
             m_SecondAdjustmentRecord = new TMP_GlyphAdjustmentRecord(glyphPairAdjustmentRecord.secondAdjustmentRecord);
+            m_FeatureLookupFlags = FontFeatureLookupFlags.None;
         }
     }
 
@@ -204,20 +208,20 @@ namespace TMPro
     {
         public uint firstGlyphIndex;
         public uint secondGlyphIndex;
-        public long key;
+        public uint key;
 
         public GlyphPairKey(uint firstGlyphIndex, uint secondGlyphIndex)
         {
             this.firstGlyphIndex = firstGlyphIndex;
             this.secondGlyphIndex = secondGlyphIndex;
-            key = (long)secondGlyphIndex << 32 | firstGlyphIndex;
+            key = secondGlyphIndex << 16 | firstGlyphIndex;
         }
 
         internal GlyphPairKey(TMP_GlyphPairAdjustmentRecord record)
         {
             firstGlyphIndex = record.firstAdjustmentRecord.glyphIndex;
             secondGlyphIndex = record.secondAdjustmentRecord.glyphIndex;
-            key = (long)secondGlyphIndex << 32 | firstGlyphIndex;
+            key = secondGlyphIndex << 16 | firstGlyphIndex;
         }
     }
 }

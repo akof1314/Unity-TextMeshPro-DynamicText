@@ -107,6 +107,13 @@ namespace TMPro.EditorUtilities
             new GUIContent("T", "Top")
         };
 
+        protected static GUIContent[] s_CullingTypeLabels =
+        {
+            new GUIContent("Off"),
+            new GUIContent("Front"),
+            new GUIContent("Back")
+        };
+
         static TMP_BaseShaderGUI()
         {
             // Keep track of how many undo/redo events happened.
@@ -169,8 +176,9 @@ namespace TMPro.EditorUtilities
 
         protected bool BeginPanel(string panel, bool expanded)
         {
-            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+            EditorGUI.indentLevel = 0;
 
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
             Rect r = EditorGUI.IndentedRect(GUILayoutUtility.GetRect(20, 18));
             r.x += 20;
             r.width += 6;
@@ -190,6 +198,8 @@ namespace TMPro.EditorUtilities
 
         protected bool BeginPanel(string panel, ShaderFeature feature, bool expanded, bool readState = true)
         {
+            EditorGUI.indentLevel = 0;
+
             if (readState)
             {
                 feature.ReadState(m_Material);
@@ -274,14 +284,17 @@ namespace TMPro.EditorUtilities
 
         void DoTexture(string name, string label, System.Type type, bool withTilingOffset = false, string[] speedNames = null)
         {
-            MaterialProperty property = BeginProperty(name);
+            MaterialProperty property = FindProperty(name, m_Properties);
+            m_Editor.BeginAnimatedCheck(Rect.zero, property);
+
             Rect rect = EditorGUILayout.GetControlRect(true, 60f);
             float totalWidth = rect.width;
             rect.width = EditorGUIUtility.labelWidth + 60f;
             s_TempLabel.text = label;
-            Object tex = EditorGUI.ObjectField(rect, s_TempLabel, property.textureValue, type, false);
 
-            if (EndProperty())
+            EditorGUI.BeginChangeCheck();
+            Object tex = EditorGUI.ObjectField(rect, s_TempLabel, property.textureValue, type, false);
+            if (EditorGUI.EndChangeCheck())
             {
                 property.textureValue = tex as Texture;
             }
@@ -295,6 +308,8 @@ namespace TMPro.EditorUtilities
                 DoTilingOffset(rect, property);
                 rect.y += (rect.height + 2f) * 2f;
             }
+
+            m_Editor.EndAnimatedCheck();
 
             if (speedNames != null)
             {
@@ -318,9 +333,10 @@ namespace TMPro.EditorUtilities
             Rect vectorRect = EditorGUI.PrefixLabel(rect, s_TempLabel);
             values[0] = vector.x;
             values[1] = vector.y;
+
             EditorGUI.BeginChangeCheck();
             EditorGUI.MultiFloatField(vectorRect, s_XywhVectorLabels, values);
-            if (EndProperty())
+            if (EditorGUI.EndChangeCheck())
             {
                 vector.x = values[0];
                 vector.y = values[1];
@@ -332,9 +348,10 @@ namespace TMPro.EditorUtilities
             vectorRect = EditorGUI.PrefixLabel(rect, s_TempLabel);
             values[0] = vector.z;
             values[1] = vector.w;
+
             EditorGUI.BeginChangeCheck();
             EditorGUI.MultiFloatField(vectorRect, s_XywhVectorLabels, values);
-            if (EndProperty())
+            if (EditorGUI.EndChangeCheck())
             {
                 vector.z = values[0];
                 vector.w = values[1];
@@ -397,7 +414,7 @@ namespace TMPro.EditorUtilities
         {
             MaterialProperty property = BeginProperty(name);
             s_TempLabel.text = label;
-            Color value = EditorGUI.ColorField(EditorGUILayout.GetControlRect(), s_TempLabel, property.colorValue);
+            Color value = EditorGUI.ColorField(EditorGUILayout.GetControlRect(), s_TempLabel, property.colorValue, false, true, true);
             if (EndProperty())
             {
                 property.colorValue = value;

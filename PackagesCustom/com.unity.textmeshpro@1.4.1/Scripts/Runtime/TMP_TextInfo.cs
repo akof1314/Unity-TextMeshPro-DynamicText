@@ -12,8 +12,8 @@ namespace TMPro
     [Serializable]
     public class TMP_TextInfo
     {
-        private static Vector2 k_InfinityVectorPositive = new Vector2(32767, 32767);
-        private static Vector2 k_InfinityVectorNegative = new Vector2(-32767, -32767);
+        internal static Vector2 k_InfinityVectorPositive = new Vector2(32767, 32767);
+        internal static Vector2 k_InfinityVectorNegative = new Vector2(-32767, -32767);
 
         public TMP_Text textComponent;
 
@@ -48,6 +48,16 @@ namespace TMPro
             meshInfo = new TMP_MeshInfo[1];
         }
 
+        internal TMP_TextInfo(int characterCount)
+        {
+            characterInfo = new TMP_CharacterInfo[characterCount];
+            wordInfo = new TMP_WordInfo[16];
+            linkInfo = new TMP_LinkInfo[0];
+            lineInfo = new TMP_LineInfo[2];
+            pageInfo = new TMP_PageInfo[4];
+
+            meshInfo = new TMP_MeshInfo[1];
+        }
 
         public TMP_TextInfo(TMP_Text textComponent)
         {
@@ -139,7 +149,9 @@ namespace TMPro
             if (this.lineInfo == null)
                 this.lineInfo = new TMP_LineInfo[2];
 
-            for (int i = 0; i < this.lineInfo.Length; i++)
+            int length = this.lineInfo.Length;
+
+            for (int i = 0; i < length; i++)
             {
                 this.lineInfo[i].characterCount = 0;
                 this.lineInfo[i].spaceCount = 0;
@@ -150,12 +162,31 @@ namespace TMPro
                 this.lineInfo[i].ascender = k_InfinityVectorNegative.x;
                 this.lineInfo[i].descender = k_InfinityVectorPositive.x;
 
+                this.lineInfo[i].marginLeft = 0;
+                this.lineInfo[i].marginRight = 0;
+
                 this.lineInfo[i].lineExtents.min = k_InfinityVectorPositive;
                 this.lineInfo[i].lineExtents.max = k_InfinityVectorNegative;
 
                 this.lineInfo[i].maxAdvance = 0;
                 //this.lineInfo[i].maxScale = 0;
+            }
+        }
 
+        internal void ClearPageInfo()
+        {
+            if (this.pageInfo == null)
+                this.pageInfo = new TMP_PageInfo[2];
+
+            int length = this.pageInfo.Length;
+
+            for (int i = 0; i < length; i++)
+            {
+                this.pageInfo[i].firstCharacterIndex = 0;
+                this.pageInfo[i].lastCharacterIndex = 0;
+                this.pageInfo[i].ascender = -32767;
+                this.pageInfo[i].baseLine = 0;
+                this.pageInfo[i].descender = 32767;
             }
         }
 
@@ -243,11 +274,11 @@ namespace TMPro
         /// <param name="isFixedSize"></param>
         public static void Resize<T>(ref T[] array, int size, bool isBlockAllocated)
         {
-            //if (size <= array.Length) return;
-
             if (isBlockAllocated) size = size > 1024 ? size + 256 : Mathf.NextPowerOfTwo(size);
 
             if (size == array.Length) return;
+
+            //Debug.Log("Resizing TextInfo from [" + array.Length + "] to [" + size + "]");
 
             Array.Resize(ref array, size);
         }

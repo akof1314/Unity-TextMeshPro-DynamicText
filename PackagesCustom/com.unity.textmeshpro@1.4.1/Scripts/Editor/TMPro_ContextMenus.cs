@@ -46,12 +46,17 @@ namespace TMPro.EditorUtilities
             Material source_Mat = (Material)command.context;
             if (!EditorUtility.IsPersistent(source_Mat))
             {
-                Debug.LogWarning("Material is an instance and cannot be converted into a permanent asset.");
+                Debug.LogWarning("Material is an instance and cannot be converted into a persistent asset.");
                 return;
             }
 
-
             string assetPath = AssetDatabase.GetAssetPath(source_Mat).Split('.')[0];
+
+            if (assetPath.IndexOf("Assets/", System.StringComparison.InvariantCultureIgnoreCase) == -1)
+            {
+                Debug.LogWarning("Material Preset cannot be created from a material that is located outside the project.");
+                return;
+            }
 
             Material duplicate = new Material(source_Mat);
 
@@ -60,23 +65,26 @@ namespace TMPro.EditorUtilities
 
             AssetDatabase.CreateAsset(duplicate, AssetDatabase.GenerateUniqueAssetPath(assetPath + ".mat"));
 
-            // Assign duplicate Material to selected object (if one is)
-            if (Selection.activeGameObject != null)
+            GameObject[] selectedObjects = Selection.gameObjects;
+
+            // Assign new Material Preset to selected text objects.
+            for (int i = 0; i < selectedObjects.Length; i++)
             {
-                TMP_Text textObject = Selection.activeGameObject.GetComponent<TMP_Text>();
+                TMP_Text textObject = selectedObjects[i].GetComponent<TMP_Text>();
+
                 if (textObject != null)
                 {
                     textObject.fontSharedMaterial = duplicate;
                 }
                 else
                 {
-                    TMP_SubMesh subMeshObject = Selection.activeGameObject.GetComponent<TMP_SubMesh>();
+                    TMP_SubMesh subMeshObject = selectedObjects[i].GetComponent<TMP_SubMesh>();
 
                     if (subMeshObject != null)
                         subMeshObject.sharedMaterial = duplicate;
                     else
                     {
-                        TMP_SubMeshUI subMeshUIObject = Selection.activeGameObject.GetComponent<TMP_SubMeshUI>();
+                        TMP_SubMeshUI subMeshUIObject = selectedObjects[i].GetComponent<TMP_SubMeshUI>();
 
                         if (subMeshUIObject != null)
                             subMeshUIObject.sharedMaterial = duplicate;
@@ -90,7 +98,7 @@ namespace TMPro.EditorUtilities
         }
 
 
-        //[MenuItem("CONTEXT/MaterialComponent/Copy Material Properties", false)]
+        // COPY MATERIAL PROPERTIES
         [MenuItem("CONTEXT/Material/Copy Material Properties", false)]
         static void CopyMaterialProperties(MenuCommand command)
         {
@@ -115,7 +123,6 @@ namespace TMPro.EditorUtilities
         [MenuItem("CONTEXT/Material/Paste Material Properties", false)]
         static void PasteMaterialProperties(MenuCommand command)
         {
-
             if (m_copiedProperties == null)
             {
                 Debug.LogWarning("No Material Properties to Paste. Use Copy Material Properties first.");
@@ -156,7 +163,6 @@ namespace TMPro.EditorUtilities
         [MenuItem("CONTEXT/Material/Reset", false, 2100)]
         static void ResetSettings(MenuCommand command)
         {
-
             Material mat = null;
             if (command.context.GetType() == typeof(Material))
                 mat = (Material)command.context;
@@ -218,7 +224,6 @@ namespace TMPro.EditorUtilities
         }
 
 
-
         //This function is used for debugging and fixing potentially broken font atlas links.
         [MenuItem("CONTEXT/Material/Copy Atlas", false, 2000)]
         static void CopyAtlas(MenuCommand command)
@@ -236,15 +241,24 @@ namespace TMPro.EditorUtilities
         {
             Material mat = command.context as Material;
 
+            if (mat == null)
+                return;
+
             if (m_copiedAtlasProperties != null)
             {
                 Undo.RecordObject(mat, "Paste Texture");
 
                 ShaderUtilities.GetShaderPropertyIDs(); // Make sure we have valid Property IDs
-                mat.SetTexture(ShaderUtilities.ID_MainTex, m_copiedAtlasProperties.GetTexture(ShaderUtilities.ID_MainTex));
-                mat.SetFloat(ShaderUtilities.ID_GradientScale, m_copiedAtlasProperties.GetFloat(ShaderUtilities.ID_GradientScale));
-                mat.SetFloat(ShaderUtilities.ID_TextureWidth, m_copiedAtlasProperties.GetFloat(ShaderUtilities.ID_TextureWidth));
-                mat.SetFloat(ShaderUtilities.ID_TextureHeight, m_copiedAtlasProperties.GetFloat(ShaderUtilities.ID_TextureHeight));
+
+                if (m_copiedAtlasProperties.HasProperty(ShaderUtilities.ID_MainTex))
+                    mat.SetTexture(ShaderUtilities.ID_MainTex, m_copiedAtlasProperties.GetTexture(ShaderUtilities.ID_MainTex));
+
+                if (m_copiedAtlasProperties.HasProperty(ShaderUtilities.ID_GradientScale))
+                {
+                    mat.SetFloat(ShaderUtilities.ID_GradientScale, m_copiedAtlasProperties.GetFloat(ShaderUtilities.ID_GradientScale));
+                    mat.SetFloat(ShaderUtilities.ID_TextureWidth, m_copiedAtlasProperties.GetFloat(ShaderUtilities.ID_TextureWidth));
+                    mat.SetFloat(ShaderUtilities.ID_TextureHeight, m_copiedAtlasProperties.GetFloat(ShaderUtilities.ID_TextureHeight));
+                }
             }
             else if (m_copiedTexture != null)
             {
@@ -289,7 +303,7 @@ namespace TMPro.EditorUtilities
         }
 
         /// <summary>
-        /// 
+        ///
         /// </summary>
         /// <param name="command"></param>
         [MenuItem("CONTEXT/TMP_FontAsset/Update Atlas Texture...", false, 2000)]
@@ -303,9 +317,21 @@ namespace TMPro.EditorUtilities
             }
         }
 
+        [MenuItem("CONTEXT/TMP_FontAsset/Force Upgrade To Version 1.1.0...", false, 2010)]
+        static void ForceFontAssetUpgrade(MenuCommand command)
+        {
+            TMP_FontAsset fontAsset = command.context as TMP_FontAsset;
+
+            if (fontAsset != null)
+            {
+                fontAsset.UpgradeFontAsset();
+                TMPro_EventManager.ON_FONT_PROPERTY_CHANGED(true, fontAsset);
+            }
+        }
+
 
         /// <summary>
-        /// Clear Font Asset Data
+        /// Clear Dynamic Font Asset data such as glyph, character and font features.
         /// </summary>
         /// <param name="command"></param>
         [MenuItem("CONTEXT/TMP_FontAsset/Reset", false, 100)]

@@ -2,6 +2,10 @@
 using System.Collections;
 using UnityEngine.UI;
 
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
+
 
 namespace TMPro
 {
@@ -22,6 +26,7 @@ namespace TMPro
         private const float kWidth = 160f;
         private const float kThickHeight = 30f;
         private const float kThinHeight = 20f;
+        private static Vector2 s_TextElementSize = new Vector2(100f, 100f);
         private static Vector2 s_ThickElementSize = new Vector2(kWidth, kThickHeight);
         private static Vector2 s_ThinElementSize = new Vector2(kWidth, kThinHeight);
         //private static Vector2 s_ImageElementSize = new Vector2(100f, 100f);
@@ -147,11 +152,19 @@ namespace TMPro
 
         public static GameObject CreateText(Resources resources)
         {
-            GameObject go = CreateUIElementRoot("Text (TMP)", s_ThickElementSize);
+            GameObject go = null;
+            #if UNITY_EDITOR
+                go = ObjectFactory.CreateGameObject("Text (TMP)");
+            #else
+                go = CreateUIElementRoot("Text (TMP)", s_TextElementSize);
+            #endif
 
-            TextMeshProUGUI lbl = go.AddComponent<TextMeshProUGUI>();
-            lbl.text = "New Text";
-            SetDefaultTextValues(lbl);
+            TextMeshProUGUI textComponent = null;
+            #if UNITY_EDITOR
+                textComponent = ObjectFactory.AddComponent<TextMeshProUGUI>(go);
+            #else
+                textComponent = go.AddComponent<TextMeshProUGUI>();
+            #endif
 
             return go;
         }
@@ -202,6 +215,9 @@ namespace TMPro
             Color placeholderColor = text.color;
             placeholderColor.a *= 0.5f;
             placeholder.color = placeholderColor;
+
+            // Add Layout component to placeholder.
+            placeholder.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
 
             RectTransform textRectTransform = childText.GetComponent<RectTransform>();
             textRectTransform.anchorMin = Vector2.zero;

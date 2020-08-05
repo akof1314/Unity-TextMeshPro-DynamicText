@@ -7,7 +7,16 @@ using System.Collections.Generic;
 
 namespace TMPro
 {
-    [System.Serializable]
+    /// <summary>
+    /// Scaling options for the sprites
+    /// </summary>
+    //public enum SpriteRelativeScaling
+    //{
+    //    RelativeToPrimary   = 0x1,
+    //    RelativeToCurrent   = 0x2,
+    //}
+
+    [System.Serializable][ExcludeFromPresetAttribute]
     public class TMP_Settings : ScriptableObject
     {
         private static TMP_Settings s_Instance;
@@ -192,6 +201,18 @@ namespace TMPro
         private bool m_autoSizeTextContainer;
 
         /// <summary>
+        /// Disables InternalUpdate() calls when true. This can improve performance when the scale of the text object is static.
+        /// </summary>
+        public static bool isTextObjectScaleStatic
+        {
+            get { return instance.m_IsTextObjectScaleStatic; }
+            set { instance.m_IsTextObjectScaleStatic = value; }
+        }
+        [SerializeField]
+        private bool m_IsTextObjectScaleStatic;
+
+
+        /// <summary>
         /// Returns the list of Fallback Fonts defined in the TMP Settings file.
         /// </summary>
         public static List<TMP_FontAsset> fallbackFontAssets
@@ -232,16 +253,6 @@ namespace TMPro
         private string m_defaultSpriteAssetPath;
 
         /// <summary>
-        /// The relative path to a Resources folder in the project that contains Color Gradient Presets.
-        /// </summary>
-        public static string defaultColorGradientPresetsPath
-        {
-            get { return instance.m_defaultColorGradientPresetsPath; }
-        }
-        [SerializeField]
-        private string m_defaultColorGradientPresetsPath;
-
-        /// <summary>
         /// Determines if Emoji support is enabled in the Input Field TouchScreenKeyboard.
         /// </summary>
         public static bool enableEmojiSupport
@@ -253,6 +264,38 @@ namespace TMPro
         private bool m_enableEmojiSupport;
 
         /// <summary>
+        /// The unicode value of the sprite that will be used when the requested sprite is missing from the sprite asset and potential fallbacks.
+        /// </summary>
+        public static uint missingCharacterSpriteUnicode
+        {
+            get { return instance.m_MissingCharacterSpriteUnicode; }
+            set { instance.m_MissingCharacterSpriteUnicode = value; }
+        }
+        [SerializeField]
+        private uint m_MissingCharacterSpriteUnicode;
+
+        /// <summary>
+        /// Determines if sprites will be scaled relative to the primary font asset assigned to the text object or relative to the current font asset.
+        /// </summary>
+        //public static SpriteRelativeScaling spriteRelativeScaling
+        //{
+        //    get { return instance.m_SpriteRelativeScaling; }
+        //    set { instance.m_SpriteRelativeScaling = value; }
+        //}
+        //[SerializeField]
+        //private SpriteRelativeScaling m_SpriteRelativeScaling = SpriteRelativeScaling.RelativeToCurrent;
+
+        /// <summary>
+        /// The relative path to a Resources folder in the project that contains Color Gradient Presets.
+        /// </summary>
+        public static string defaultColorGradientPresetsPath
+        {
+            get { return instance.m_defaultColorGradientPresetsPath; }
+        }
+        [SerializeField]
+        private string m_defaultColorGradientPresetsPath;
+
+        /// <summary>
         /// The Default Style Sheet used by the text objects.
         /// </summary>
         public static TMP_StyleSheet defaultStyleSheet
@@ -261,6 +304,16 @@ namespace TMPro
         }
         [SerializeField]
         private TMP_StyleSheet m_defaultStyleSheet;
+
+        /// <summary>
+        /// The relative path to a Resources folder in the project that contains the TMP Style Sheets.
+        /// </summary>
+        public static string styleSheetsResourcePath
+        {
+            get { return instance.m_StyleSheetsResourcePath; }
+        }
+        [SerializeField]
+        private string m_StyleSheetsResourcePath;
 
         /// <summary>
         /// Text file that contains the leading characters used for line breaking for Asian languages.
@@ -283,7 +336,7 @@ namespace TMPro
         private TextAsset m_followingCharacters;
 
         /// <summary>
-        /// 
+        ///
         /// </summary>
         public static LineBreakingTable linebreakingRules
         {
@@ -297,6 +350,33 @@ namespace TMPro
         }
         [SerializeField]
         private LineBreakingTable m_linebreakingRules;
+
+        // TODO : Potential new feature to explore where multiple font assets share the same atlas texture.
+        //internal static TMP_DynamicAtlasTextureGroup managedAtlasTextures
+        //{
+        //    get
+        //    {
+        //        if (instance.m_DynamicAtlasTextureGroup == null)
+        //        {
+        //            instance.m_DynamicAtlasTextureGroup = TMP_DynamicAtlasTextureGroup.CreateDynamicAtlasTextureGroup();
+        //        }
+
+        //        return instance.m_DynamicAtlasTextureGroup;
+        //    }
+        //}
+        //[SerializeField]
+        //private TMP_DynamicAtlasTextureGroup m_DynamicAtlasTextureGroup;
+
+        /// <summary>
+        /// Determines if Modern or Traditional line breaking rules should be used for Korean text.
+        /// </summary>
+        public static bool useModernHangulLineBreakingRules
+        {
+            get { return instance.m_UseModernHangulLineBreakingRules; }
+            set { instance.m_UseModernHangulLineBreakingRules = value; }
+        }
+        [SerializeField]
+        private bool m_UseModernHangulLineBreakingRules;
 
         /// <summary>
         /// Get a singleton instance of the settings class.
@@ -379,7 +459,7 @@ namespace TMPro
 
 
         /// <summary>
-        /// Returns the Sprite Asset defined in the TMP Settings file.
+        /// Returns the Style Sheet defined in the TMP Settings file.
         /// </summary>
         /// <returns></returns>
         public static TMP_StyleSheet GetStyleSheet()

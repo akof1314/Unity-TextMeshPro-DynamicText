@@ -1,5 +1,6 @@
 ﻿using UnityEngine;
 using UnityEditor;
+using UnityEditor.Presets;
 using UnityEditor.SceneManagement;
 using UnityEditor.Experimental.SceneManagement;
 using UnityEngine.SceneManagement;
@@ -11,57 +12,6 @@ namespace TMPro.EditorUtilities
 {
     public static class TMPro_CreateObjectMenu
     {
-        /// <summary>
-        /// Create a TextMeshPro object that works with the Mesh Renderer
-        /// </summary>
-        /// <param name="command"></param>
-        [MenuItem("GameObject/3D Object/Text - TextMeshPro Dynamic", false, 31)]
-        static void CreateTextMeshProObjectPerformDynamic(MenuCommand command)
-        {
-            GameObject go = new GameObject("Text (TMP)");
-
-            // Add support for new prefab mode
-            StageUtility.PlaceGameObjectInCurrentStage(go);
-
-            TextMeshPro textMeshPro = go.AddComponent<TextMeshPro_Dynamic>();
-            textMeshPro.text = "Sample text";
-            textMeshPro.alignment = TextAlignmentOptions.TopLeft;
-
-            Undo.RegisterCreatedObjectUndo((Object)go, "Create " + go.name);
-
-            GameObject contextObject = command.context as GameObject;
-            if (contextObject != null)
-            {
-                GameObjectUtility.SetParentAndAlign(go, contextObject);
-                Undo.SetTransformParent(go.transform, contextObject.transform, "Parent " + go.name);
-            }
-
-            Selection.activeGameObject = go;
-        }
-
-
-        /// <summary>
-        /// Create a TextMeshPro object that works with the CanvasRenderer
-        /// </summary>
-        /// <param name="command"></param>
-        [MenuItem("GameObject/UI/Text - TextMeshPro Dynamic", false, 2002)]
-        static void CreateTextMeshProGuiObjectPerformDynamic(MenuCommand menuCommand)
-        {
-            GameObject go = new GameObject("Text (TMP)");
-            go.AddComponent<RectTransform>().sizeDelta = new Vector2(160f, 30f);
-
-            TextMeshProUGUI lbl = go.AddComponent<TextMeshProUGUI_Dynamic>();
-            lbl.text = "New Text";
-            lbl.fontSize = 14;
-
-            // Override text color and font size
-            TMP_Text textComponent = go.GetComponent<TMP_Text>();
-            textComponent.color = Color.white;
-            if (textComponent.m_isWaitingOnResourceLoad == false)
-                textComponent.fontSize = TMP_Settings.defaultFontSize;
-
-            PlaceUIElementRoot(go, menuCommand);
-        }
 
         /// <summary>
         /// Create a TextMeshPro object that works with the Mesh Renderer
@@ -70,16 +20,44 @@ namespace TMPro.EditorUtilities
         [MenuItem("GameObject/3D Object/Text - TextMeshPro", false, 30)]
         static void CreateTextMeshProObjectPerform(MenuCommand command)
         {
-            GameObject go = new GameObject("Text (TMP)");
+            GameObject go = ObjectFactory.CreateGameObject("Text (TMP)");
 
             // Add support for new prefab mode
             StageUtility.PlaceGameObjectInCurrentStage(go);
 
-            TextMeshPro textMeshPro = go.AddComponent<TextMeshPro>();
-            textMeshPro.text = "Sample text";
-            textMeshPro.alignment = TextAlignmentOptions.TopLeft;
+            TextMeshPro textComponent = ObjectFactory.AddComponent<TextMeshPro>(go);
 
-            Undo.RegisterCreatedObjectUndo((Object)go, "Create " + go.name);
+            if (textComponent.m_isWaitingOnResourceLoad == false)
+            {
+                // Apply TMP Settings Defaults if no Preset is defined
+                if (Preset.GetDefaultForObject(textComponent) == null)
+                {
+                    textComponent.text = "Sample text";
+                    textComponent.alignment = TextAlignmentOptions.TopLeft;
+                }
+                else
+                {
+                    textComponent.renderer.sortingLayerID = textComponent._SortingLayerID;
+                    textComponent.renderer.sortingOrder = textComponent._SortingOrder;
+                }
+
+                if (TMP_Settings.autoSizeTextContainer)
+                {
+                    Vector2 size = textComponent.GetPreferredValues(TMP_Math.FLOAT_MAX, TMP_Math.FLOAT_MAX);
+                    textComponent.rectTransform.sizeDelta = size;
+                }
+                else
+                {
+                    textComponent.rectTransform.sizeDelta = TMP_Settings.defaultTextMeshProTextContainerSize;
+                }
+            }
+            else
+            {
+                textComponent.text = "Sample text";
+                textComponent.alignment = TextAlignmentOptions.TopLeft;
+            }
+
+            Undo.RegisterCreatedObjectUndo(go, "Create " + go.name);
 
             GameObject contextObject = command.context as GameObject;
             if (contextObject != null)
@@ -102,16 +80,40 @@ namespace TMPro.EditorUtilities
             GameObject go = TMP_DefaultControls.CreateText(GetStandardResources());
 
             // Override text color and font size
-            TMP_Text textComponent = go.GetComponent<TMP_Text>();
-            textComponent.color = Color.white;
+            TextMeshProUGUI textComponent = go.GetComponent<TextMeshProUGUI>();
+
             if (textComponent.m_isWaitingOnResourceLoad == false)
-                textComponent.fontSize = TMP_Settings.defaultFontSize;
+            {
+                // Apply TMP Settings Defaults if no Preset is defined
+                if (Preset.GetDefaultForObject(textComponent) == null)
+                {
+                    textComponent.fontSize = TMP_Settings.defaultFontSize;
+                    textComponent.color = Color.white;
+                    textComponent.text = "New Text";
+                }
+
+                if (TMP_Settings.autoSizeTextContainer)
+                {
+                    Vector2 size = textComponent.GetPreferredValues(TMP_Math.FLOAT_MAX, TMP_Math.FLOAT_MAX);
+                    textComponent.rectTransform.sizeDelta = size;
+                }
+                else
+                {
+                    textComponent.rectTransform.sizeDelta = TMP_Settings.defaultTextMeshProUITextContainerSize;
+                }
+            }
+            else
+            {
+                textComponent.fontSize = 36;
+                textComponent.color = Color.white;
+                textComponent.text = "New Text";
+            }
 
             PlaceUIElementRoot(go, menuCommand);
         }
 
         [MenuItem("GameObject/UI/Button - TextMeshPro", false, 2031)]
-        static public void AddButton(MenuCommand menuCommand)
+        public static void AddButton(MenuCommand menuCommand)
         {
             GameObject go = TMP_DefaultControls.CreateButton(GetStandardResources());
 
@@ -133,7 +135,7 @@ namespace TMPro.EditorUtilities
 
 
         [MenuItem("GameObject/UI/Dropdown - TextMeshPro", false, 2036)]
-        static public void AddDropdown(MenuCommand menuCommand)
+        public static void AddDropdown(MenuCommand menuCommand)
         {
             GameObject go = TMP_DefaultControls.CreateDropdown(GetStandardResources());
             PlaceUIElementRoot(go, menuCommand);
@@ -150,10 +152,10 @@ namespace TMPro.EditorUtilities
         private const string kDropdownArrowPath = "UI/Skin/DropdownArrow.psd";
         private const string kMaskPath = "UI/Skin/UIMask.psd";
 
-        static private TMP_DefaultControls.Resources s_StandardResources;
+        private static TMP_DefaultControls.Resources s_StandardResources;
 
 
-        static private TMP_DefaultControls.Resources GetStandardResources()
+        private static TMP_DefaultControls.Resources GetStandardResources()
         {
             if (s_StandardResources.standard == null)
             {
@@ -266,7 +268,7 @@ namespace TMPro.EditorUtilities
         }
 
 
-        static public GameObject CreateNewUI()
+        public static GameObject CreateNewUI()
         {
             // Root for the UI
             var root = new GameObject("Canvas");
@@ -325,7 +327,7 @@ namespace TMPro.EditorUtilities
 
 
         // Helper function that returns a Canvas GameObject; preferably a parent of the selection, or other existing Canvas.
-        static public GameObject GetOrCreateCanvasGameObject()
+        public static GameObject GetOrCreateCanvasGameObject()
         {
             GameObject selectedGo = Selection.activeGameObject;
 

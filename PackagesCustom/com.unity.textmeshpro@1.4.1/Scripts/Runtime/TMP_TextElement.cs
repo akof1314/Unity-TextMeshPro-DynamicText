@@ -27,6 +27,11 @@ namespace TMPro
         public uint unicode { get { return m_Unicode; } set { m_Unicode = value; } }
 
         /// <summary>
+        /// The Text Asset to which this Text Element belongs.
+        /// </summary>
+        public TMP_Asset textAsset { get { return m_TextAsset; } set { m_TextAsset = value; } }
+
+        /// <summary>
         /// The glyph used by this text element.
         /// </summary>
         public Glyph glyph { get { return m_Glyph; } set { m_Glyph = value; } }
@@ -49,14 +54,16 @@ namespace TMPro
         protected TextElementType m_ElementType;
 
         [SerializeField]
-        private uint m_Unicode;
+        internal uint m_Unicode;
 
-        private Glyph m_Glyph;
+        internal TMP_Asset m_TextAsset;
+
+        internal Glyph m_Glyph;
 
         [SerializeField]
-        private uint m_GlyphIndex;
+        internal uint m_GlyphIndex;
 
         [SerializeField]
-        private float m_Scale;
+        internal float m_Scale;
     }
 }

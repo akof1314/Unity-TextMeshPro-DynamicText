@@ -4,7 +4,7 @@ using System;
 using System.IO;
 using UnityEngine;
 using UnityEditor;
- 
+
 
 namespace TMPro
 {
@@ -24,7 +24,7 @@ namespace TMPro
         public void OnGUI()
         {
             // Check if the resources state has changed.
-            m_EssentialResourcesImported = Directory.Exists("Assets/TextMesh Pro");
+            m_EssentialResourcesImported = File.Exists("Assets/TextMesh Pro/Resources/TMP Settings.asset");
             m_ExamplesAndExtrasResourcesImported = Directory.Exists("Assets/TextMesh Pro/Examples & Extras");
 
             GUILayout.BeginVertical();
@@ -62,6 +62,9 @@ namespace TMPro
                         // Set flag to get around importing scripts as per of this package which results in an assembly reload which in turn prevents / clears any callbacks.
                         m_IsImportingExamples = true;
 
+                        // Disable AssetDatabase refresh until examples have been imported.
+                        //AssetDatabase.DisallowAutoRefresh();
+
                         var packageFullPath = GetPackageFullPath();
                         AssetDatabase.ImportPackage(packageFullPath + "/Package Resources/TMP Examples & Extras.unitypackage", false);
                     }
@@ -80,7 +83,7 @@ namespace TMPro
         }
 
         /// <summary>
-        /// 
+        ///
         /// </summary>
         /// <param name="packageName"></param>
         void ImportCallback(string packageName)
@@ -98,6 +101,7 @@ namespace TMPro
             {
                 m_ExamplesAndExtrasResourcesImported = true;
                 m_IsImportingExamples = false;
+                //AssetDatabase.AllowAutoRefresh();
             }
 
             Debug.Log("[" + packageName + "] have been imported.");
@@ -160,11 +164,17 @@ namespace TMPro
         [SerializeField]
         TMP_PackageResourceImporter m_ResourceImporter;
 
+        static TMP_PackageResourceImporterWindow m_ImporterWindow;
+
         public static void ShowPackageImporterWindow()
         {
-            var window = GetWindow<TMP_PackageResourceImporterWindow>();
-            window.titleContent = new GUIContent("TMP Importer");
-            window.Focus();
+            if (m_ImporterWindow == null)
+            {
+                m_ImporterWindow = GetWindow<TMP_PackageResourceImporterWindow>();
+                m_ImporterWindow.titleContent = new GUIContent("TMP Importer");
+            }
+
+            m_ImporterWindow.Focus();
         }
 
         void OnEnable()
@@ -193,7 +203,7 @@ namespace TMPro
         {
             Repaint();
         }
-        
+
         /// <summary>
         /// Limits the minimum size of the editor window.
         /// </summary>

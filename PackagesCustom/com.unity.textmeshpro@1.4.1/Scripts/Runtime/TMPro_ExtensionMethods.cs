@@ -32,6 +32,18 @@ namespace TMPro
             return new string(chars);
         }
 
+        internal static string UintToString(this List<uint> unicodes)
+        {
+            char[] chars = new char[unicodes.Count];
+
+            for (int i = 0; i < unicodes.Count; i++)
+            {
+                chars[i] = (char)unicodes[i];
+            }
+
+            return new string(chars);
+        }
+
         public static string IntToString(this int[] unicodes, int start, int length)
         {
             if (start > unicodes.Length)
@@ -55,7 +67,7 @@ namespace TMPro
         public static int FindInstanceID <T> (this List<T> list, T target) where T : Object
         {
             int targetID = target.GetInstanceID();
-            
+
             for (int i = 0; i < list.Count; i++)
             {
                 if (list[i].GetInstanceID() == targetID)
@@ -116,6 +128,13 @@ namespace TMPro
             byte a = (byte)(Mathf.Clamp(c1.a / 255f * tint * 255, 0, 255));
 
             return new Color32(r, g, b, a);
+        }
+
+        public static Color MinAlpha(this Color c1, Color c2)
+        {
+            float a = c1.a < c2.a ? c1.a : c2.a;
+
+            return new Color(c1.r, c1.g, c1.b, a);
         }
 
 
@@ -219,6 +238,12 @@ namespace TMPro
         public static bool Approximately(float a, float b)
         {
             return (b - 0.0001f) < a && a < (b + 0.0001f);
+        }
+
+        public static int Mod(int a, int b)
+        {
+            int r = a % b;
+            return r < 0 ? r + b : r;
         }
     }
 }
