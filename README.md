@@ -1,9 +1,9 @@
-# Unity-TextMeshPro-DynamicText
-TextMeshPro DynamicText 动态文本组件，动态生成当前界面所需要的字体图集。
+# Unity-TextMeshPro-DynamicManager
+TextMeshPro DynamicManager 动态文本管理
 
 ## 原理
 
-基于`TextMeshPro`1.4.1 版本，收集当前显示所需的动态文本，利用`font.TryAddCharacters`接口进行生成字体图集。
+基于`TextMeshPro`1.5.x 版本，注册需要检查的字体图集，在切场景的时候调用检查动态图集纹理数量，大于一定数量时清除重置，防止纹理数越来越多。
 
 ## 使用场景
 
@@ -11,20 +11,12 @@ TextMeshPro DynamicText 动态文本组件，动态生成当前界面所需要�
 
 ![](https://github.com/akof1314/Unity-TextMeshPro-DynamicText/raw/master/Pic/2019-11-30_142340.png)
 
-## 组件
+## 静态方法
 
-- TextMeshProUGUI_Dynamic
-- TextMeshPro_Dynamic
+- TMP_DynamicManager.RegisterFontAssetDynamic(text)
+- TMP_DynamicManager.CheckFontAssetDynamic();
 
-## 示例截图
 
-显示第一个文本时
-
-![](https://github.com/akof1314/Unity-TextMeshPro-DynamicText/raw/master/Pic/2019-11-30_144033.png)
-
-隐藏第一个文本，显示第二个文本时
-
-![](https://github.com/akof1314/Unity-TextMeshPro-DynamicText/raw/master/Pic/2019-11-30_144806.png)
 
 ## 源码地址
 
